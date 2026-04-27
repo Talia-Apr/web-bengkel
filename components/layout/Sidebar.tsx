@@ -53,7 +53,7 @@ export default function Sidebar({ role, isOpen, onClose }: SidebarProps) {
   const navItems = navByRole[role] || []
 
   const handleSignOut = () => {
-    signOut({ callbackUrl: '/login' })
+    signOut({ callbackUrl: '/login', redirect: true })
   }
 
   return (

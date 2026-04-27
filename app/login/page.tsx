@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from "next/link"
 import Image from 'next/image'
 import { Check, Eye, EyeOff } from 'lucide-react'
@@ -8,6 +8,9 @@ import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import { getServerSession } from 'next-auth'
+import { authOptions } from "@/lib/auth"
+import { redirect } from 'next/navigation'
 
 const REDIRECT_MAP: Record<string, string> = {
   admin:     "/admin",
@@ -15,6 +18,31 @@ const REDIRECT_MAP: Record<string, string> = {
   pemilik:   "/pemilik",
   pelanggan: "/pelanggan",
 }
+
+useEffect(() => {
+  // Replace history agar back button tidak kembali ke halaman protected
+  window.history.replaceState(null, '', '/login')
+  
+  // Push state kosong agar back button tidak bisa keluar dari login
+  window.history.pushState(null, '', '/login')
+  
+  const handlePopState = () => {
+    window.history.pushState(null, '', '/login')
+  }
+  
+  window.addEventListener('popstate', handlePopState)
+  return () => window.removeEventListener('popstate', handlePopState)
+}, [])
+
+const session = await getServerSession(authOptions)
+  
+  if (session) {
+    const role = session.user.role
+    if (role === 'admin')     redirect('/admin')
+    if (role === 'mekanik')   redirect('/mekanik')
+    if (role === 'pelanggan') redirect('/pelanggan')
+    if (role === 'pemilik')   redirect('/pemilik')
+  }
 
 function LoginForm(){
   const router = useRouter()
