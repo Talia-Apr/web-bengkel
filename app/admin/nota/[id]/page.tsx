@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { id } from 'date-fns/locale'
-import SearchableSelect, { SelectOption } from '@/components/ui/SearchableSelect'
+import SearchableSelect from '@/components/ui/SearchableSelect'
 
 interface NotaRow {
   id_nota: number
