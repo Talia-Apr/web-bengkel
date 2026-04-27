@@ -7,6 +7,13 @@ export default withAuth(
     const path = req.nextUrl.pathname
     const role = token?.role as string
 
+    if (path === '/' && token) {
+      if (role === 'admin') return NextResponse.redirect(new URL('/admin', req.url))
+      if (role === 'mekanik') return NextResponse.redirect(new URL('/mekanik', req.url))
+      if (role === 'pelanggan') return NextResponse.redirect(new URL('/pelanggan', req.url))
+      if (role === 'pemilik') return NextResponse.redirect(new URL('/pemilik', req.url))
+    }
+
     // 1. Jika user sudah login dan mencoba akses /login, arahkan ke dashboard masing-masing
     if (path === '/login' && token) {
       if (role === 'admin') return NextResponse.redirect(new URL('/admin', req.url))
@@ -46,7 +53,7 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    // '/' 
+    '/',
     '/admin/:path*',
     '/mekanik/:path*',
     '/pelanggan/:path*',
