@@ -1,0 +1,122 @@
+/* app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --orange:      #ea580c;
+  --orange-lite: #fdba74;
+  --orange-pale: #fff7ed;
+  --dark:        #0f0d0b;
+  --dark2:       #1a1612;
+  --cream:       #fdf8f3;
+  --white:       #ffffff;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--cream);
+  overflow-x: hidden;
+}
+
+/* Fonts yang tidak ada di Tailwind */
+.font-playfair { font-family: 'Playfair Display', serif; }
+.font-mono-dm  { font-family: 'DM Mono', monospace; }
+
+/* Animasi */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+
+.animate-pulse-dot { animation: pulse-dot 2s infinite; }
+.animate-float     { animation: float-y 4s ease-in-out infinite; }
+
+/* Clip-path diagonal strip */
+.clip-hero-strip { clip-path: polygon(10% 0, 100% 0, 100% 100%, 0% 100%); }
+
+/* Webkit text stroke (tidak ada di Tailwind v3) */
+.text-stroke-white { -webkit-text-stroke: 1.5px rgba(255,255,255,0.4); color: transparent; }
+
+/* Scrollbar */
+::-webkit-scrollbar       { width: 6px; }
+::-webkit-scrollbar-track { background: #0f0d0b; }
+::-webkit-scrollbar-thumb { background: #ea580c; border-radius: 3px; }
+
+/* Gallery hover */
+.gallery-item:hover .gallery-img  { transform: scale(1.08); }
+.gallery-item:hover .gallery-overlay { opacity: 1; }
+.gallery-img     { transition: transform 0.4s ease; }
+.gallery-overlay { transition: opacity 0.3s ease; opacity: 0; }
+
+/* Text Section */
+.tag { display: inline-flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--orange); margin-bottom: 16px; }
+.tag::before { content: ''; width: 20px; height: 2px; background: var(--orange); }
+.sec-title { font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 900; line-height: 1.05; color: var(--dark); letter-spacing: -1px; }
+.sec-title em { color: var(--orange); font-style: italic; }
+.sec-title.light { color: var(--white); }
+.sec-title.light em { color: var(--orange); }
+
+/* Logo Hero Landing */
+@keyframes logoPulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes ringPulse {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #area-cetak, #area-cetak *,
+  #nota-print, #nota-print * {
+    visibility: visible;
+  }
+
+  #area-cetak,
+  #nota-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /* Hanya muncul saat print, tersembunyi di layar */
+  .only-print {
+    display: block !important;
+  }
+}
+
+/* Sembunyikan di layar normal */
+.only-print {
+  display: none;
+}
