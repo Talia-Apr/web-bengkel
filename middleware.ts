@@ -46,11 +46,11 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    '/',
-    '/login', // Masukkan login ke sini agar bisa dicek oleh middleware
+    // '/' 
     '/admin/:path*',
     '/mekanik/:path*',
     '/pelanggan/:path*',
     '/pemilik/:path*',
+    '/login', 
   ],
 }
