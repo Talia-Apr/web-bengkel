@@ -8,11 +8,24 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Tambahan: Mengabaikan peringatan saat proses build internal
+
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        cardinal: false,
+      };
+    }
+    return config;
+  },
+
+  // Mengabaikan peringatan saat proses build internal
   devIndicators: {
     buildActivity: false,
   },
 };
 
-module.exports = nextConfig; // Gunakan ini jika nama filenya next.config.js
-// export default nextConfig; // Gunakan ini jika nama filenya next.config.mjs
+module.exports = nextConfig; 
