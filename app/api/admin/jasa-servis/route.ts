@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import pool from '@/lib/db'
-import { RowDataPacket, ResultSetHeader } from 'mysql2'
+import { RowDataPacket } from 'mysql2'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)

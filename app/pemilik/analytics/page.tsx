@@ -8,8 +8,8 @@ import ChartRenderer from '@/components/analytics/ChartRenderer'
 import SQLDisplay from '@/components/analytics/SQLDisplay'
 import {
   Sparkles, Send, BarChart3, TrendingUp, PieChart, Table2,
-  Loader2, AlertTriangle, CheckCircle2, Wifi, WifiOff,
-  RefreshCw, ChevronRight, History, X, Download, Clock,
+  Loader2, AlertTriangle, Wifi, WifiOff,
+  RefreshCw, ChevronRight, History, X, Clock,
   Lightbulb, Hourglass,
   ClipboardList
 } from 'lucide-react'
@@ -467,7 +467,7 @@ export default function AnalyticsPage() {
 
             {/* Progress steps */}
             <div className="flex gap-1.5">
-              {LOADING_STEPS.map((s, i) => (
+              {LOADING_STEPS.map((_s, i) => (
                 <div key={i} className={`h-1.5 rounded-full transition-all duration-500
                   ${i <= loadingStep ? 'bg-orange-500' : 'bg-stone-200'}
                   ${i === loadingStep ? 'w-8' : 'w-4'}

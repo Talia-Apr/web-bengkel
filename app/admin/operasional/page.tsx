@@ -1,8 +1,8 @@
 'use client'
 // app/admin/operasional/page.tsx
 import { useState, useEffect, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, AlertTriangle, X, Check, Calendar } from 'lucide-react'
-import { format, parseISO, getDaysInMonth, startOfMonth, getDay, addMonths, subMonths } from 'date-fns'
+import { ChevronLeft, ChevronRight, AlertTriangle, Check, Calendar } from 'lucide-react'
+import { format, parseISO, addMonths, subMonths } from 'date-fns'
 import { id } from 'date-fns/locale'
 
 interface JadwalItem {
@@ -49,25 +49,6 @@ export default function AdminJadwalPage() {
 
   // Reset selected date saat bulan berubah
   useEffect(() => { setSelectedDate(null) }, [bulanStr])
-
-  const getStatusTanggal = (tgl: string): 'tutup' | 'buka' => {
-    console.log('=== getStatusTanggal ===')
-    console.log('cari tgl:', tgl)
-    console.log('jadwal state:', jadwal)
-    console.log('cells:', cells.filter(c => c !== null).slice(0, 10))
-    console.log('hariAwal:', hariAwal)
-    console.log('tahun:', tahun, 'bulan:', bulan, 'bulan+1:', bulan+1, 'hariAwal:', hariAwal, 'jumlahHari:', jumlahHari)
-    
-    const j = jadwal.find(j => {
-      const jTgl = String(j.tanggal).substring(0, 10)
-      console.log('compare:', jTgl, '===', tgl, '->', jTgl === tgl)
-      return jTgl === tgl
-    })
-    
-    console.log('hasil find:', j)
-    return j?.status === 'tutup' ? 'tutup' : 'buka'
-
-  }
 
   const getBookingTanggal = (tgl: string): number => {
     const b = bookingPerHari.find(b => {
@@ -120,14 +101,6 @@ export default function AdminJadwalPage() {
       setJadwal(json2.data.jadwal)
       setBookingPerHari(json2.data.bookingPerHari)
     }
-  }
-
-  const isPastDate = (tgl: string): boolean => {
-    const [y, m, d] = tgl.split('-').map(Number)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const inputDate = new Date(y, m - 1, d)
-    return inputDate < today
   }
 
   // Generate kalender

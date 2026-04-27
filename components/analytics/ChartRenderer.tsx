@@ -27,7 +27,6 @@ const COLORS = [
   '#16a34a', '#15803d', '#2563eb', '#7c3aed',
 ]
 
-const ORANGE_GRADIENT = '#ea580c'
 
 // Format angka Rupiah
 function fmtNumber(val: any, key: string): string {
@@ -52,7 +51,7 @@ function fmtNumber(val: any, key: string): string {
 }
 
 // Tooltip kustom
-function CustomTooltip({ active, payload, label, numKey }: any) {
+function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-stone-900 text-white px-3 py-2 rounded-lg shadow-xl text-xs border border-stone-700">
@@ -67,7 +66,7 @@ function CustomTooltip({ active, payload, label, numKey }: any) {
 }
 
 // Kustom label pie
-function PieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) {
+function PieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) {
   if (percent < 0.05) return null
   const RADIAN = Math.PI / 180
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5

@@ -52,7 +52,6 @@ export default function PemilikDashboard() {
   // Chart Booking 6 Terakhir
   const weeklyChart = (() => {
     const result = []
-    let i = 0
     let daysBack = 0
     while (result.length < 6) {
       const date = subDays(new Date(), daysBack)

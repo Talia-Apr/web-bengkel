@@ -2,9 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Wrench, Car, CheckCircle, Clock, ChevronRight, AlertCircle, ClipboardList } from 'lucide-react'
-import { format, parseISO } from 'date-fns'
-import { id } from 'date-fns/locale'
+import { Wrench, Car, CheckCircle, Clock, AlertCircle, ClipboardList } from 'lucide-react'
+import { format } from 'date-fns'
 
 interface MekanikInfo {
   id_mekanik: number
@@ -34,13 +33,6 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
   dalam_pengerjaan:    { label: 'Dalam Pengerjaan',    color: 'text-orange-700', bg: 'bg-orange-100',  icon: Wrench       },
   test_drive:          { label: 'Test Drive',          color: 'text-purple-700', bg: 'bg-purple-100',  icon: Car          },
   selesai:             { label: 'Selesai',             color: 'text-green-700',  bg: 'bg-green-100',   icon: CheckCircle  },
-}
-
-const formatWaktu = (val: string) => {
-  try {
-    const d = val.includes('T') ? parseISO(val) : parseISO(val + 'T00:00:00')
-    return format(d, 'EEEE, dd MMM yyyy', { locale: id })
-  } catch { return val }
 }
 
 export default function MekanikDashboard() {

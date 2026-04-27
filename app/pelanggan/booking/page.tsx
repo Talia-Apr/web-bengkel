@@ -121,7 +121,7 @@ export default function PelangganBookingPage() {
   const [kilometer, setKilometer] = useState('')
   const [tanggalDipilih, setTanggalDipilih] = useState(false)
   const [tanggalPenuh, setTanggalPenuh] = useState<string[]>([])
-  const [loadingTanggal, setLoadingTanggal] = useState(false)
+  const [_loadingTanggal, setLoadingTanggal] = useState(false)
   const [jadwalTutup, setJadwalTutup] = useState<string[]>([])
   const [bookingPerHari, setBookingPerHari] = useState<any[]>([])
   const [kuotaPerHari, setKuotaPerHari] = useState(7)
@@ -1066,7 +1066,6 @@ export default function PelangganBookingPage() {
                   {upcomingDates.map(date => {
                     const isClosed = isTanggalTutup(date)
                     const isFull   = checkIsFull(date)
-                    const isDisabled = isClosed || isFull
                     return (
                       <button
                         key={date}
