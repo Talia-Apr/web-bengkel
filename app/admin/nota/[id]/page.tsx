@@ -314,93 +314,109 @@ export default function DetailNotaPage() {
   if (!nota) return
 
   const logoBase64 = await getBase64Image('/logo-hitam.png')
-
   const jasaItems  = detail.filter(d => d.jenis_item === 'jasa')
   const spareItems = detail.filter(d => d.jenis_item === 'sparepart')
+  const totalJasaCetak      = jasaItems.reduce((s, d) => s + Number(d.subtotal), 0)
+  const totalSparepartCetak = spareItems.reduce((s, d) => s + Number(d.subtotal), 0)
+  const grandTotalCetak = (totalJasaCetak - diskonJasa) + (totalSparepartCetak - diskonSp)
 
-  // Ganti bagian running di handleCetak
-  let runningJasa = 0
-  const jasaRows = jasaItems.map((d, i) => {
-    runningJasa += Number(d.subtotal)  
-    return `<tr>
-      <td style="padding:5px 8px;color:#78716c;vertical-align:top;">${i === 0 ? 'Jasa' : ''}</td>
-      <td style="padding:5px 8px;">${d.nama_item}</td>
-      <td style="padding:5px 8px;text-align:center;">${d.qty}</td>
-      <td style="padding:5px 8px;text-align:right;">Rp ${Number(d.harga).toLocaleString('id-ID')}</td>
-      <td style="padding:5px 8px;text-align:right;">Rp ${Number(d.subtotal).toLocaleString('id-ID')}</td>
-    </tr>`
-  }).join('')
+  const jasaRows = jasaItems.map((d, i) => `<tr>
+    <td style="padding:5px 8px;color:#78716c;vertical-align:top;">${i === 0 ? 'Jasa' : ''}</td>
+    <td style="padding:5px 8px;">${d.nama_item}</td>
+    <td style="padding:5px 8px;text-align:center;">${d.qty}</td>
+    <td style="padding:5px 8px;text-align:right;">Rp ${Number(d.harga).toLocaleString('id-ID')}</td>
+    <td style="padding:5px 8px;text-align:right;">Rp ${Number(d.subtotal).toLocaleString('id-ID')}</td>
+  </tr>`).join('')
 
-  let runningSpare = 0
-  const spareRows = spareItems.map((d, i) => {
-    runningSpare += Number(d.subtotal)  
-    return `<tr>
-      <td style="padding:5px 8px;color:#78716c;vertical-align:top;">${i === 0 ? 'Part' : ''}</td>
-      <td style="padding:5px 8px;">${d.nama_item}</td>
-      <td style="padding:5px 8px;text-align:center;">${d.qty}</td>
-      <td style="padding:5px 8px;text-align:right;">Rp ${Number(d.harga).toLocaleString('id-ID')}</td>
-      <td style="padding:5px 8px;text-align:right;">Rp ${Number(d.subtotal).toLocaleString('id-ID')}</td>
-    </tr>`
-  }).join('')
-
-  const grandTotalCetak = (totalJasa - diskonJasa) + (totalSparepart - diskonSp)
+  const spareRows = spareItems.map((d, i) => `<tr>
+    <td style="padding:5px 8px;color:#78716c;vertical-align:top;">${i === 0 ? 'Part' : ''}</td>
+    <td style="padding:5px 8px;">${d.nama_item}</td>
+    <td style="padding:5px 8px;text-align:center;">${d.qty}</td>
+    <td style="padding:5px 8px;text-align:right;">Rp ${Number(d.harga).toLocaleString('id-ID')}</td>
+    <td style="padding:5px 8px;text-align:right;">Rp ${Number(d.subtotal).toLocaleString('id-ID')}</td>
+  </tr>`).join('')
 
   const html = `<!DOCTYPE html>
   <html>
   <head>
     <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>Nota ${nota.nomor_nota}</title>
     <style>
       * { margin:0; padding:0; box-sizing:border-box; }
-      body { font-family: Arial, sans-serif; font-size: 12px; color: #1c1917; padding: 40px 48px; max-width: 720px; margin: 0 auto; }
-      @media print { body { padding: 24px; } @page { margin: 16mm; } }
+      body { font-family: Arial, sans-serif; font-size: 12px; color: #1c1917; padding: 32px; max-width: 680px; margin: 0 auto; }
+      @media print {
+        body { padding: 16px; }
+        @page { margin: 12mm; size: A4; }
+        .no-print { display: none !important; }
+      }
+      .btn-print {
+        display: block;
+        margin: 16px auto 0;
+        padding: 10px 24px;
+        background: #1c1917;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
-    <!-- Header -->
-    <div style="display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:24px;">
-      ${logoBase64 ? `<img src="${logoBase64}" style="width:72px; height:72px; object-fit:contain; flex-shrink:0;" />` : ''}
+    <!-- Tombol print hanya tampil di layar, hilang saat print -->
+    <div class="no-print" style="text-align:center; margin-bottom:16px;">
+      <button class="btn-print" onclick="window.print()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:6px;">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Cetak / Simpan PDF
+      </button>
+    </div>
+
+    <div style="display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:20px;">
+      ${logoBase64 ? `<img src="${logoBase64}" style="width:60px; height:60px; object-fit:contain;" />` : ''}
       <div style="text-align:center;">
-        <div style="font-size:18px; font-weight:bold; letter-spacing:1px;">BENGKEL NUGRAHA JAYA</div>
-        <div style="font-size:11px; color:#57534e; margin-top:4px;">Jl. Raden Wijaya II/No.2 Sawotratap, Gedangan – Sidoarjo</div>
-        <div style="font-size:11px; color:#57534e;">Telp. (031)997782447, (081)1378263</div>
+        <div style="font-size:16px; font-weight:bold;">BENGKEL NUGRAHA JAYA</div>
+        <div style="font-size:10px; color:#57534e; margin-top:3px;">Jl. Raden Wijaya II/No.2 Sawotratap, Gedangan – Sidoarjo</div>
+        <div style="font-size:10px; color:#57534e;">Telp. (031)997782447, (081)1378263</div>
       </div>
     </div>
 
-    <hr style="border:none; border-top:2px solid #1c1917; margin-bottom:16px;"/>
+    <hr style="border:none; border-top:2px solid #1c1917; margin-bottom:14px;"/>
 
-    <!-- Info Grid -->
-    <table style="width:100%; margin-bottom:16px; font-size:12px;">
+    <table style="width:100%; margin-bottom:14px; font-size:11px;">
       <tr>
-        <td style="width:33%; vertical-align:top; padding-bottom:4px;">
-          <div style="margin-bottom:5px;"><span style="font-weight:bold;">No. Nota</span><br/>${nota.nomor_nota}</div>
-          <div style="margin-bottom:5px;"><span style="font-weight:bold;">Tanggal</span><br/>${formatTanggal(nota.tanggal_nota)}</div>
-          <div><span style="font-weight:bold;">Pelanggan</span><br/>${nota.nama_pelanggan}</div>
+        <td style="width:33%; vertical-align:top;">
+          <div style="margin-bottom:4px;"><b>No. Nota</b><br/>${nota.nomor_nota}</div>
+          <div style="margin-bottom:4px;"><b>Tanggal</b><br/>${formatTanggal(nota.tanggal_nota)}</div>
+          <div><b>Pelanggan</b><br/>${nota.nama_pelanggan}</div>
         </td>
-        <td style="width:33%; vertical-align:top; padding-bottom:4px;">
-          <div style="margin-bottom:5px;"><span style="font-weight:bold;">Type/Thn</span><br/>${nota.merk} ${nota.tahun}</div>
-          <div style="margin-bottom:5px;"><span style="font-weight:bold;">No. Pol</span><br/>${nota.nomor_polisi}</div>
-          <div><span style="font-weight:bold;">KM</span><br/>-</div>
+        <td style="width:33%; vertical-align:top;">
+          <div style="margin-bottom:4px;"><b>Kendaraan</b><br/>${nota.merk} ${nota.tahun}</div>
+          <div style="margin-bottom:4px;"><b>No. Pol</b><br/>${nota.nomor_polisi}</div>
+          <div><b>KM</b><br/>-</div>
         </td>
-        <td style="width:33%; vertical-align:top; padding-bottom:4px;">
-          <div style="margin-bottom:5px;"><span style="font-weight:bold;">No. Telp</span><br/>${nota.no_telp}</div>
-          <div style="margin-bottom:5px;"><span style="font-weight:bold;">Warna</span><br/>-</div>
-          <div><span style="font-weight:bold;">Mekanik</span><br/>${nota.nama_mekanik}</div>
+        <td style="width:33%; vertical-align:top;">
+          <div style="margin-bottom:4px;"><b>No. Telp</b><br/>${nota.no_telp}</div>
+          <div style="margin-bottom:4px;"><b>Mekanik</b><br/>${nota.nama_mekanik}</div>
+          <div><b>Warna</b><br/>-</div>
         </td>
       </tr>
     </table>
 
-    <hr style="border:none; border-top:1px solid #d6d3d1; margin-bottom:0;"/>
+    <hr style="border:none; border-top:1px solid #d6d3d1;"/>
 
-    <!-- Tabel Item -->
-    <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:0;">
+    <table style="width:100%; border-collapse:collapse; font-size:11px;">
       <thead>
         <tr style="border-bottom:1px solid #d6d3d1;">
-          <th style="padding:8px; text-align:left; font-weight:normal; color:#57534e; width:12%;">Deskripsi</th>
-          <th style="padding:8px; text-align:left; font-weight:normal; color:#57534e;">Nama</th>
-          <th style="padding:8px; text-align:center; font-weight:normal; color:#57534e; width:8%;">Qty</th>
-          <th style="padding:8px; text-align:right; font-weight:normal; color:#57534e; width:18%;">Harga</th>
-          <th style="padding:8px; text-align:right; font-weight:normal; color:#57534e; width:18%;">Total</th>
+          <th style="padding:7px 8px; text-align:left; font-weight:normal; color:#57534e; width:12%;">Deskripsi</th>
+          <th style="padding:7px 8px; text-align:left; font-weight:normal; color:#57534e;">Nama</th>
+          <th style="padding:7px 8px; text-align:center; font-weight:normal; color:#57534e; width:8%;">Qty</th>
+          <th style="padding:7px 8px; text-align:right; font-weight:normal; color:#57534e; width:18%;">Harga</th>
+          <th style="padding:7px 8px; text-align:right; font-weight:normal; color:#57534e; width:18%;">Total</th>
         </tr>
       </thead>
       <tbody>
@@ -410,63 +426,62 @@ export default function DetailNotaPage() {
       <tfoot>
         <tr style="border-top:1px solid #d6d3d1;">
           <td colspan="3"></td>
-          <td style="padding:6px 8px; text-align:right; color:#57534e;">Subtotal Jasa</td>
-          <td style="padding:6px 8px; text-align:right;">Rp. ${totalJasa.toLocaleString('id-ID')}</td>
+          <td style="padding:5px 8px; text-align:right; color:#57534e;">Subtotal Jasa</td>
+          <td style="padding:5px 8px; text-align:right;">Rp ${totalJasaCetak.toLocaleString('id-ID')}</td>
         </tr>
         ${diskonJasa > 0 ? `<tr>
           <td colspan="3"></td>
-          <td style="padding:6px 8px; text-align:right; color:#16a34a;">Diskon Jasa</td>
-          <td style="padding:6px 8px; text-align:right; color:#16a34a;">-Rp. ${diskonJasa.toLocaleString('id-ID')}</td>
+          <td style="padding:5px 8px; text-align:right; color:#16a34a;">Diskon Jasa</td>
+          <td style="padding:5px 8px; text-align:right; color:#16a34a;">-Rp ${diskonJasa.toLocaleString('id-ID')}</td>
         </tr>` : ''}
-        ${totalSparepart > 0 ? `<tr>
+        ${totalSparepartCetak > 0 ? `<tr>
           <td colspan="3"></td>
-          <td style="padding:6px 8px; text-align:right; color:#57534e;">Subtotal Sparepart</td>
-          <td style="padding:6px 8px; text-align:right;">Rp. ${totalSparepart.toLocaleString('id-ID')}</td>
+          <td style="padding:5px 8px; text-align:right; color:#57534e;">Subtotal Sparepart</td>
+          <td style="padding:5px 8px; text-align:right;">Rp ${totalSparepartCetak.toLocaleString('id-ID')}</td>
         </tr>` : ''}
         ${diskonSp > 0 ? `<tr>
           <td colspan="3"></td>
-          <td style="padding:6px 8px; text-align:right; color:#16a34a;">Diskon Part</td>
-          <td style="padding:6px 8px; text-align:right; color:#16a34a;">-Rp. ${diskonSp.toLocaleString('id-ID')}</td>
+          <td style="padding:5px 8px; text-align:right; color:#16a34a;">Diskon Part</td>
+          <td style="padding:5px 8px; text-align:right; color:#16a34a;">-Rp ${diskonSp.toLocaleString('id-ID')}</td>
         </tr>` : ''}
         <tr style="border-top:1px solid #d6d3d1;">
           <td colspan="3"></td>
           <td style="padding:8px; text-align:right; font-weight:bold;">Total Pembayaran</td>
-          <td style="padding:8px; text-align:right; font-weight:bold;">Rp. ${grandTotalCetak.toLocaleString('id-ID')}</td>
+          <td style="padding:8px; text-align:right; font-weight:bold;">Rp ${grandTotalCetak.toLocaleString('id-ID')}</td>
         </tr>
       </tfoot>
     </table>
 
-    <hr style="border:none; border-top:1px solid #d6d3d1; margin-bottom:12px;"/>
+    <hr style="border:none; border-top:1px solid #d6d3d1; margin:12px 0;"/>
 
-    <!-- Footer Pembayaran -->
-    <div style="font-size:11px;">
-      <div style="font-weight:bold; margin-bottom:6px;">
-        Pembayaran Via ${nota.metode_pembayaran
-          ? nota.metode_pembayaran.charAt(0).toUpperCase() + nota.metode_pembayaran.slice(1)
-          : 'Transfer'}
+    <div style="font-size:10px;">
+      <div style="font-weight:bold; margin-bottom:5px;">
+        Pembayaran Via ${nota.metode_pembayaran ? nota.metode_pembayaran.charAt(0).toUpperCase() + nota.metode_pembayaran.slice(1) : 'Transfer'}
       </div>
-      <div style="display:flex; gap:40px; color:#57534e;">
+      <div style="display:flex; gap:32px; color:#57534e;">
         <div>Bank Mandiri A/n CV.NUGRAHA JAYA<br/>A/C 1410-01416-4990</div>
         <div>Bank BCA A/n DIAN TRIANA<br/>A/C 720-5264-787</div>
       </div>
     </div>
 
-    <div style="text-align:center; font-size:11px; color:#d6d3d1; margin-top:24px; padding-top:12px; border-top:1px solid #e7e5e4;">
+    <div style="text-align:center; font-size:10px; color:#d6d3d1; margin-top:20px; padding-top:10px; border-top:1px solid #e7e5e4;">
       Terima kasih telah mempercayakan kendaraan Anda kepada kami
     </div>
   </body>
   </html>`
 
-  const printWindow = window.open('', '_blank', 'width=800,height=700')
-  if (!printWindow) return
-  printWindow.document.write(html)
-  printWindow.document.close()
-  printWindow.focus()
-  setTimeout(() => {
-    printWindow.print()
-    printWindow.close()
-  }, 300)
-}
+    // Gunakan Blob URL — bisa di-preview di HP dan bisa disimpan sebagai PDF
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href   = url
+    a.target = '_blank'
+    a.rel    = 'noopener noreferrer'
+    a.click()
+
+    // Cleanup URL setelah 60 detik
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  }
 
   if (loading) {
     return <div className="flex items-center justify-center py-20 text-stone-400 text-sm">Memuat...</div>
@@ -639,30 +654,38 @@ export default function DetailNotaPage() {
             {detail.filter(d => d.jenis_item === 'sparepart').map(d => (
               <tr key={d.id_detail_nota}>
                 {editingItem?.id_detail_nota === d.id_detail_nota ? (
-                  <td colSpan={4} className="py-2">
-                    <form onSubmit={handleEditItem} className="flex items-center gap-2">
-                      {/* Hanya qty yang bisa diedit */}
-                      <span className="flex-1 text-xs text-stone-600 px-2">{d.nama_item}</span>
-                      <input
-                        type="number" min={1} value={editingItem.qty}
-                        onChange={e => {
-                          const qty = Number(e.target.value)
-                          setEditingItem({
-                            ...editingItem,
-                            qty,
-                            subtotal: qty * toNum(editingItem.harga)
-                          })
-                        }}
-                        className="w-20 px-2 py-1 border border-stone-300 rounded-lg text-xs text-right focus:outline-none focus:ring-1 focus:ring-orange-500"
-                      />
-                      <span className="text-xs text-stone-400 w-28 text-right">{formatRupiah(toNum(d.harga))}</span>
-                      <button type="submit" disabled={savingEditItem} className="p-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
-                        <Save className="w-3 h-3" />
-                      </button>
-                      <button type="button" onClick={() => setEditingItem(null)}
-                        className="p-1.5 border border-stone-300 text-stone-500 rounded-lg hover:bg-stone-50">
-                        <X className="w-3 h-3" />
-                      </button>
+                  <td colSpan={5} className="py-2 px-1">
+                    <form onSubmit={handleEditItem} className="space-y-2">
+                      <div className="text-xs font-medium text-stone-700 truncate">{d.nama_item}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <label className="text-xs text-stone-400">Qty</label>
+                          <input
+                            type="number" min={1} value={editingItem.qty}
+                            onChange={e => {
+                              const qty = Number(e.target.value)
+                              setEditingItem({ ...editingItem, qty, subtotal: qty * toNum(editingItem.harga) })
+                            }}
+                            className="w-full px-2 py-1.5 border border-stone-300 rounded-lg text-xs text-right focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-xs text-stone-400">Harga</label>
+                          <div className="px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs text-right text-stone-500">
+                            {formatRupiah(toNum(d.harga))}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 mt-4">
+                          <button type="submit" disabled={savingEditItem}
+                            className="p-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+                            <Save className="w-3 h-3" />
+                          </button>
+                          <button type="button" onClick={() => setEditingItem(null)}
+                            className="p-1.5 border border-stone-300 text-stone-500 rounded-lg hover:bg-stone-50">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
                     </form>
                   </td>
                 ) : (

@@ -94,37 +94,45 @@ export default function PemilikDashboard() {
             value: data?.total_booking_bulan ?? 0,
             icon: Calendar,
             color: 'bg-blue-500',
-            suffix: 'booking'
+            isRupiah: false,
           },
           {
             label: 'Kendaraan Selesai',
             value: data?.total_selesai ?? 0,
             icon: Wrench,
             color: 'bg-green-500',
-            suffix: 'unit'
+            isRupiah: false,
           },
           {
             label: 'Booking Hari Ini',
             value: data?.booking_hari_ini ?? 0,
             icon: Car,
             color: 'bg-orange-500',
-            suffix: 'unit'
+            isRupiah: false,
           },
           {
             label: 'Pendapatan Bulan Ini',
-            value: formatRupiah(data?.pendapatan_bulan ?? 0),
+            value: data?.pendapatan_bulan ?? 0,
             icon: DollarSign,
             color: 'bg-yellow-600',
-            suffix: ''
+            isRupiah: true,
           },
         ].map(stat => {
           const Icon = stat.icon
           return (
-            <div key={stat.label} className="bg-white border border-stone-200 rounded-xl p-5">
-              <div className={`w-10 h-10 ${stat.color} rounded-xl flex items-center justify-center mb-3`}>
-                <Icon className="w-5 h-5 text-white" />
+            <div key={stat.label} className="bg-white border border-stone-200 rounded-xl p-4">
+              <div className={`w-9 h-9 ${stat.color} rounded-xl flex items-center justify-center mb-3 flex-shrink-0`}>
+                <Icon className="w-4 h-4 text-white" />
               </div>
-              <div className="text-2xl font-bold font-display text-stone-900">{stat.value}</div>
+              {stat.isRupiah ? (
+                <div className="min-w-0">                  
+                  <div className="text-lg font-bold font-display text-stone-900 leading-tight break-all">
+                    Rp {Number(stat.value).toLocaleString('id-ID')}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-2xl font-bold font-display text-stone-900">{stat.value}</div>
+              )}
               <div className="text-xs text-stone-500 mt-1">{stat.label}</div>
             </div>
           )

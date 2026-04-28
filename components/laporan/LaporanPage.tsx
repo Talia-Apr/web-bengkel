@@ -216,6 +216,16 @@ export default function LaporanPage({ role }: Props) {
       </style>
     </head>
     <body>
+      <div class="no-print" style="text-align:center; margin-bottom:16px;">
+        <button onclick="window.print()" style="padding:10px 24px; background:#1c1917; color:white; border:none; border-radius:8px; font-size:14px; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Cetak / Simpan PDF
+        </button>
+      </div>
       <!-- Header -->
       <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px; border-bottom:2px solid #1c1917; padding-bottom:16px;">
         ${logoBase64 ? `<img src="${logoBase64}" style="width:64px; height:64px; object-fit:contain; flex-shrink:0;" />` : ''}
@@ -305,15 +315,14 @@ export default function LaporanPage({ role }: Props) {
     </body>
     </html>`
 
-    const printWindow = window.open('', '_blank', 'width=1200,height=800')
-    if (!printWindow) return
-    printWindow.document.write(html)
-    printWindow.document.close()
-    printWindow.focus()
-    setTimeout(() => {
-      printWindow.print()
-      printWindow.close()
-    }, 400)
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href   = url
+    a.target = '_blank'
+    a.rel    = 'noopener noreferrer'
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }
 
   return (
@@ -351,32 +360,38 @@ export default function LaporanPage({ role }: Props) {
       {/* Summary cards */}
       {summary && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white border border-stone-200 rounded-xl p-5">
+          <div className="bg-white border border-stone-200 rounded-xl p-4">
             <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
               <FileText className="w-4 h-4 text-blue-600" />
             </div>
             <div className="text-2xl font-bold text-stone-900">{summary.total_servis}</div>
             <div className="text-xs text-stone-500 mt-1">Total Servis Selesai</div>
           </div>
-          <div className="bg-white border border-stone-200 rounded-xl p-5">
+          <div className="bg-white border border-stone-200 rounded-xl p-4">
             <div className="w-9 h-9 bg-green-100 rounded-lg flex items-center justify-center mb-3">
               <CheckCircle className="w-4 h-4 text-green-600" />
             </div>
-            <div className="text-2xl font-bold text-green-700">{formatRupiah(summary.total_pendapatan_lunas)}</div>
+            <div className="text-base font-bold text-green-700 leading-tight break-all">
+              {formatRupiah(summary.total_pendapatan_lunas)}
+            </div>
             <div className="text-xs text-stone-500 mt-1">Pendapatan Lunas ({summary.total_lunas} servis)</div>
           </div>
-          <div className="bg-white border border-stone-200 rounded-xl p-5">
+          <div className="bg-white border border-stone-200 rounded-xl p-4">
             <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center mb-3">
               <AlertCircle className="w-4 h-4 text-red-600" />
             </div>
-            <div className="text-2xl font-bold text-red-600">{formatRupiah(summary.total_piutang_amount)}</div>
+            <div className="text-base font-bold text-red-600 leading-tight break-all">
+              {formatRupiah(summary.total_piutang_amount)}
+            </div>
             <div className="text-xs text-stone-500 mt-1">Piutang ({summary.total_piutang} servis)</div>
           </div>
-          <div className="bg-white border border-stone-200 rounded-xl p-5">
+          <div className="bg-white border border-stone-200 rounded-xl p-4">
             <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center mb-3">
               <TrendingUp className="w-4 h-4 text-orange-600" />
             </div>
-            <div className="text-2xl font-bold text-stone-900">{formatRupiah(summary.total_keseluruhan)}</div>
+            <div className="text-base font-bold text-stone-900 leading-tight break-all">
+              {formatRupiah(summary.total_keseluruhan)}
+            </div>
             <div className="text-xs text-stone-500 mt-1">Total Keseluruhan</div>
           </div>
         </div>

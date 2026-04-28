@@ -116,14 +116,14 @@ export default function AdminJasaServisPage() {
       {/* Tabel */}
       <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm table-fixed">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-stone-200 bg-stone-800">
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-stone-100 uppercase tracking-wide w-1/4">Kode</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-stone-100 uppercase tracking-wide w-1/4">Nama Jasa Servis</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-stone-100 uppercase tracking-wide w-1/4">Keterangan</th>
-                <th className="text-right px-5 py-3.5 text-xs font-semibold text-stone-100 uppercase tracking-wide w-1/4">Harga Jasa</th>
-                <th className="text-center px-5 py-3.5 text-xs font-semibold text-stone-100 uppercase tracking-wide w-1/4">Aksi</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-stone-100 uppercase tracking-wide whitespace-nowrap">Kode</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-stone-100 uppercase tracking-wide whitespace-nowrap">Nama Jasa Servis</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-stone-100 uppercase tracking-wide whitespace-nowrap">Keterangan</th>
+                <th className="text-right px-5 py-3.5 text-xs font-semibold text-stone-100 uppercase tracking-wide whitespace-nowrap">Harga Jasa</th>
+                <th className="text-center px-5 py-3.5 text-xs font-semibold text-stone-100 uppercase tracking-wide whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
@@ -137,16 +137,16 @@ export default function AdminJasaServisPage() {
               ) : (
                 jasa.map(j => (
                   <tr key={j.id_jasa} className="hover:bg-stone-50 transition-colors">
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 whitespace-nowrap">
                       <span className="font-mono text-xs bg-stone-100 text-stone-600 px-2 py-1 rounded-lg">
                         {j.kode_jasa}
                       </span>
                     </td>
                     <td className="px-5 py-4 font-semibold text-stone-900">{j.nama_jasa}</td>
-                    <td className="px-5 py-4 text-stone-600">
+                    <td className="px-5 py-4 text-stone-600 max-w-[200px] truncate" title={j.keterangan}>
                       {j.keterangan || '-'}
                     </td>
-                    <td className="px-5 py-4 text-right font-semibold text-red-500">
+                    <td className="px-5 py-4 text-right font-semibold text-red-500 whitespace-nowrap">
                       {formatRupiah(j.harga_jasa)}
                     </td>
                     <td className="px-5 py-4">

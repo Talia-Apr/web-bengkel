@@ -381,22 +381,36 @@ function SparepartTable({ data }: { data: any[] }) {
       </div>
 
       {/* Mobile cards */}
-      <div className="md:hidden flex flex-col gap-3">
-        {data.map((sp, i) => (
-          <div key={i} className="bg-white rounded-2xl border p-4">
-            <div className="flex justify-between">
-              <div>
-                <div className="font-semibold">{sp.nama_sparepart}</div>
-                <div className="text-xs text-stone-500">
-                  {sp.mobil} • {sp.kategori}
-                </div>
-              </div>
-              <span className="text-xs">
-                {sp.stok > 0 ? "Tersedia" : "Habis"}
-              </span>
-            </div>
-          </div>
-        ))}
+      <div className="md:hidden rounded-2xl border border-stone-lite overflow-hidden">
+        <table className="w-full border-collapse bg-white">
+          <thead className="bg-stone-900 text-white">
+            <tr>
+              <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide">
+                Nama Sparepart
+              </th>
+              <th className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wide">
+                Harga
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((sp, i) => (
+              <tr key={i} className="border-t border-stone-200">
+                <td className="px-4 py-3">
+                  <div className="text-[13px] font-semibold text-dark break-words">
+                    {sp.nama_sparepart}
+                  </div>
+                  <div className="text-[11px] text-stone-mid mt-0.5">
+                    {sp.satuan} • {sp.kategori}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-right text-[13px] text-red-500 font-bold whitespace-nowrap">
+                  Rp {Number(sp.harga_jual).toLocaleString('id-ID')}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )

@@ -314,8 +314,8 @@ export default function MekanikTugasDetailPage() {
             <div className="mb-4">
               {jasa.map((j, i) => (
                 <div key={j.id_detail_jasa} className={`flex items-center justify-between gap-4 py-3 ${i < jasa.length - 1 ? 'border-b border-stone-100' : ''}`}>
-                  <div>
-                    <span className="text-sm font-medium text-stone-800">{j.nama_jasa}</span>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-medium text-stone-800 break-words">{j.nama_jasa}</span>
                     {j.kode_jasa && <span className="text-xs text-stone-400 ml-2 font-mono">{j.kode_jasa}</span>}
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
@@ -341,11 +341,14 @@ export default function MekanikTugasDetailPage() {
                 onChange={setSelJasa}
                 placeholder={optsLoading ? 'Memuat...' : 'Pilih atau cari jasa servis'}
                 disabled={optsLoading}
-                className="flex-1"
+                className="flex-1 min-w-0"
               />
-              <button onClick={handleTambahJasa} disabled={!selJasa || addingJasa}
+              <button
+                onClick={handleTambahJasa}
+                disabled={!selJasa || addingJasa}
                 className="flex items-center gap-1.5 px-4 py-2.5 bg-orange-600 text-white rounded-xl text-sm font-medium hover:bg-orange-700 disabled:opacity-50 flex-shrink-0">
-                <Plus className="w-4 h-4" /> {addingJasa ? 'Menambah...' : 'Tambah'}
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">{addingJasa ? 'Menambahkan...' : 'Tambah'}</span>
               </button>
             </div>
           )}
@@ -365,8 +368,8 @@ export default function MekanikTugasDetailPage() {
             <div className="mb-4">
               {sparepart.map((sp, i) => (
                 <div key={sp.id_detail_sparepart} className={`flex items-center justify-between gap-4 py-3 ${i < sparepart.length - 1 ? 'border-b border-stone-100' : ''}`}>
-                  <div>
-                    <span className="text-sm font-medium text-stone-800">{sp.nama_sparepart}</span>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-medium text-stone-800 break-words">{sp.nama_sparepart}</span>
                     <span className="text-xs text-stone-400 ml-2">{sp.jumlah} {sp.satuan}</span>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
@@ -393,19 +396,26 @@ export default function MekanikTugasDetailPage() {
                   onChange={v => { setSelSp(v); setJumlahSp(1) }}
                   placeholder={optsLoading ? 'Memuat...' : 'Pilih atau cari sparepart'}
                   disabled={optsLoading}
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                 />
-                <input type="number" value={jumlahSp}
+                <input
+                  type="number"
+                  value={jumlahSp}
                   onChange={e => setJumlahSp(Math.max(1, Number(e.target.value)))}
-                  min={1} max={selectedSpInfo?.stok ?? 999}
-                  className="w-16 px-3 py-2.5 border border-stone-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 text-center flex-shrink-0" />
-                <button onClick={handleTambahSparepart} disabled={!selSp || addingSp}
+                  min={1}
+                  max={selectedSpInfo?.stok ?? 999}
+                  className="w-14 px-2 py-2.5 border border-stone-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 text-center flex-shrink-0"
+                />
+                <button
+                  onClick={handleTambahSparepart}
+                  disabled={!selSp || addingSp}
                   className="flex items-center gap-1.5 px-4 py-2.5 bg-orange-600 text-white rounded-xl text-sm font-medium hover:bg-orange-700 disabled:opacity-50 flex-shrink-0">
-                  <Plus className="w-4 h-4" /> {addingSp ? 'Menambah...' : 'Tambah'}
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">{addingSp ? 'Menambahkan...' : 'Tambah'}</span>
                 </button>
               </div>
               {selectedSpInfo && (
-                <p className="text-xs text-stone-500 px-1">
+                <p className="text-xs text-stone-400 px-1">
                   Stok: <strong>{selectedSpInfo.stok} {selectedSpInfo.satuan}</strong>
                   {' · '}{fmtRupiah(selectedSpInfo.harga_jual)} / {selectedSpInfo.satuan}
                   {jumlahSp > 1 && <> · Subtotal: <strong>{fmtRupiah(selectedSpInfo.harga_jual * jumlahSp)}</strong></>}

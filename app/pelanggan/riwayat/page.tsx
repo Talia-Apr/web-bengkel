@@ -186,15 +186,38 @@ const handleCetak = async () => {
     <meta charset="utf-8"/>
     <title>Nota ${nota.nomor_nota}</title>
     <style>
-      * { margin:0; padding:0; box-sizing:border-box; }
-      body { font-family: Arial, sans-serif; font-size: 12px; color: #1c1917; padding: 40px 48px; max-width: 720px; margin: 0 auto; }
-      @media print {
-        body { padding: 24px; }
-        @page { margin: 16mm; }
-      }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #1c1917; padding: 32px; max-width: 680px; margin: 0 auto; }
+        @media print {
+          body { padding: 16px; }
+          @page { margin: 12mm; size: A4; }
+          .no-print { display: none !important; }
+        }
+        .btn-print {
+          display: block;
+          margin: 16px auto 0;
+          padding: 10px 24px;
+          background: #1c1917;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+        }
     </style>
   </head>
   <body>
+    <div class="no-print" style="text-align:center; margin-bottom:16px;">
+      <button class="btn-print" onclick="window.print()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:6px;">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Cetak / Simpan PDF
+      </button>
+    </div>
+
     <!-- Header -->
     <div style="display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:24px;">
       ${logoBase64 ? `<img src="${logoBase64}" style="width:72px; height:72px; object-fit:contain; flex-shrink:0;" />` : ''}
@@ -287,15 +310,17 @@ const handleCetak = async () => {
   </body>
   </html>`
 
-  const printWindow = window.open('', '_blank', 'width=800,height=700')
-  if (!printWindow) return
-  printWindow.document.write(html)
-  printWindow.document.close()
-  printWindow.focus()
-  setTimeout(() => {
-    printWindow.print()
-    printWindow.close()
-  }, 300)
+  // Gunakan Blob URL — bisa di-preview di HP dan bisa disimpan sebagai PDF
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href   = url
+    a.target = '_blank'
+    a.rel    = 'noopener noreferrer'
+    a.click()
+
+    // Cleanup URL setelah 60 detik
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
   // Hitung total dari detail nota
