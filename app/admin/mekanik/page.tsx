@@ -111,8 +111,8 @@ export default function AdminMekanikPage() {
     fetchData()
   }
 
-  const aktif = mekaniks.filter(m => m.status === 'aktif').length
-  const tidakAktif = mekaniks.filter(m => m.status === 'tidak_aktif').length
+  const aktif      = mekaniks.filter(m => m.status?.trim().toLowerCase() === 'aktif').length
+  const tidakAktif = mekaniks.filter(m => m.status?.trim().toLowerCase() === 'tidak_aktif').length
 
   return (
     <div className="space-y-6">
@@ -141,7 +141,8 @@ export default function AdminMekanikPage() {
           </div>
         ) : (
           mekaniks.map(m => {
-            const cfg = statusConfig[m.status] ?? statusConfig['tidak_aktif']
+            const normalStatus = (m.status?.trim().toLowerCase() ?? 'tidak_aktif') as Mekanik['status']
+            const cfg = statusConfig[normalStatus] ?? statusConfig['tidak_aktif']
             return (
               <div key={m.id_mekanik} className="bg-white border border-stone-200 rounded-xl p-6 hover:border-stone-300 transition-colors">
                 <div className="flex items-start justify-between mb-4">
