@@ -192,7 +192,7 @@ function LoginForm() {
           </form>
 
           <p className="text-center text-sm text-gray-500 mt-6">
-            Belum Punya Akun?{" "}
+            Anda Pelanggan Belum Punya Akun?{" "}
             <Link href="/register" className="text-orange-600 font-semibold hover:text-orange-700">
               Daftar Sekarang
             </Link>

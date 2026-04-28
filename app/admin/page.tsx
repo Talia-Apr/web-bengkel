@@ -113,7 +113,7 @@ export default function AdminDashboard() {
         </div>
         <div className="relative">
           <p className="text-stone-400 text-sm">Selamat datang,</p>
-          <h2 className="font-display text-2xl font-bold mt-1">Dashboard Operasional</h2>
+          <h2 className="font-display text-2xl font-bold mt-1">Admin Bengkel</h2>
           <p className="text-stone-300 text-sm mt-2">
             {format(new Date(), "EEEE, dd MMMM yyyy", { locale: id })}
           </p>
