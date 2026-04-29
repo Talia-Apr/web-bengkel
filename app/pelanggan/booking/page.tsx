@@ -1226,7 +1226,7 @@ export default function PelangganBookingPage() {
                     <span className="text-sm font-bold">Total Estimasi</span>
                     <div className="text-right">
                       <span className="block text-sm font-bold text-orange-600">{formatRupiah(totalEstimasi)}</span>
-                      <p className="text-sm text-red-400 mt-0.5">* Harga belum termasuk sparepart</p>
+                      <p className="text-[15px] text-red-400 mt-0.5">* Harga Hanya Estimasi belum termasuk sparepart</p>
                     </div>
                   </div>
                 </div>
