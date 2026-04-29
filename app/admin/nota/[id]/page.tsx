@@ -364,7 +364,6 @@ export default function DetailNotaPage() {
     </style>
   </head>
   <body>
-    <!-- Tombol print hanya tampil di layar, hilang saat print -->
     <div class="no-print" style="text-align:center; margin-bottom:16px;">
       <button class="btn-print" onclick="window.print()">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:6px;">

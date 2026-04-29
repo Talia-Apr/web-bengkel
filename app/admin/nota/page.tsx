@@ -81,7 +81,7 @@ export default function AdminNotaPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
-  const [success] = useState('')
+  const [success, _setSuccess] = useState('')
 
   const fetchNotas = useCallback(async () => {
     setLoading(true)
