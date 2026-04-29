@@ -1223,8 +1223,8 @@ export default function PelangganBookingPage() {
                   <div className="flex justify-between text-sm font-bold border-t border-stone-300 pt-2 mt-2">
                     <span>Total Estimasi</span>
                     <span className="text-orange-600">{formatRupiah(totalEstimasi)}</span>
-                  </div>
-                  <p className="text-xs text-stone-400">* Belum termasuk sparepart</p>
+                    <p className="text-xs text-red-400">* Harga Hanya Estimasi Belum termasuk sparepart</p>
+                  </div>                  
                 </div>
               </div>
 
