@@ -1220,11 +1220,15 @@ export default function PelangganBookingPage() {
                       <span className="font-medium">{formatRupiah(j.harga_jasa)}</span>
                     </div>
                   ))}
-                  <div className="flex justify-between text-sm font-bold border-t border-stone-300 pt-2 mt-2">
-                    <span>Total Estimasi</span>
-                    <span className="text-orange-600">{formatRupiah(totalEstimasi)}</span>
-                    <p className="text-xs text-red-400">* Harga Hanya Estimasi Belum termasuk sparepart</p>
-                  </div>                  
+                  
+                  {/* Baris Total Estimasi */}
+                  <div className="flex justify-between items-start border-t border-stone-300 pt-2 mt-2">
+                    <span className="text-sm font-bold">Total Estimasi</span>
+                    <div className="text-right">
+                      <span className="block text-sm font-bold text-orange-600">{formatRupiah(totalEstimasi)}</span>
+                      <p className="text-[10px] text-red-400 mt-0.5">* Harga belum termasuk sparepart</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
