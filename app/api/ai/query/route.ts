@@ -822,9 +822,11 @@ export async function POST(req: NextRequest) {
     // Cache hasil ke DB (best-effort)
     pool.execute(
       `INSERT INTO query_cache (pertanyaan, sql_query, hasil_query) VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE sql_query = VALUES(sql_query), updated_at = NOW()`,
+      ON DUPLICATE KEY UPDATE sql_query = VALUES(sql_query), updated_at = NOW()`,
       [question, sql, JSON.stringify(rows.slice(0, 5))]
-    ).catch(() => {})
+    ).catch((err) => {
+      console.error('[query_cache] Gagal simpan cache:', err.message)
+    })
 
     return NextResponse.json({
       question, sql, data: rows, columns,
