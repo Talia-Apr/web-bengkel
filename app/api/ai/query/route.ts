@@ -367,7 +367,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
         AND b.status_booking NOT IN ('dibatalkan', 'ditolak')
       GROUP BY p.id_pelanggan, u.nama, p.jenis_pelanggan
       ORDER BY total_booking DESC
-      LIMIT 10`,
+      LIMIT 10`
   },
  
   // "Jumlah Pelanggan Keseluruhan"
