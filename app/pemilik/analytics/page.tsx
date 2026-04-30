@@ -37,11 +37,9 @@ interface OllamaStatus {
 // ── STEPS LOADING ────────────────────────────────────────────────────────────
 
 const LOADING_STEPS = [
-  { label: 'Mengirim pertanyaan ke Gemma3...', duration: 2000 },
-  { label: 'Model sedang membaca skema database...', duration: 5000 },
-  { label: 'Menghasilkan SQL query...', duration: 8000 },
-  { label: 'Menunggu respons Gemma3 (bisa 30-120 detik)...', duration: 20000 },
-  { label: 'Hampir selesai, eksekusi ke database...', duration: Infinity },
+  { label: 'Mengirim pertanyaan ke Groq AI...', duration: 1000 },
+  { label: 'AI sedang membuat query SQL...', duration: 3000 },
+  { label: 'Mengeksekusi query ke database...', duration: Infinity },
 ]
 
 // ── PERTANYAAN CONTOH ────────────────────────────────────────────────────────
@@ -319,9 +317,9 @@ export default function AnalyticsPage() {
           ${ollamaStatus.status === 'offline'  ? 'bg-red-50   border-red-200   text-red-700'   : ''}
           ${ollamaStatus.status === 'checking' ? 'bg-stone-50  border-stone-200 text-stone-500' : ''}
         `}>
-          {ollamaStatus.status === 'online'   && <><Wifi      className="w-3.5 h-3.5" /> Gemma3 Online</>}
-          {ollamaStatus.status === 'offline'  && <><WifiOff   className="w-3.5 h-3.5" /> Ollama Offline</>}
-          {ollamaStatus.status === 'checking' && <><Loader2   className="w-3.5 h-3.5 animate-spin" /> Memeriksa...</>}
+          {ollamaStatus.status === 'online'   && <><Wifi className="w-3.5 h-3.5" /> Groq AI Online</>}
+          {ollamaStatus.status === 'offline'  && <><WifiOff className="w-3.5 h-3.5" /> Groq Offline</>}
+          {ollamaStatus.status === 'checking' && <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Memeriksa...</>}
           <button onClick={checkOllama} className="ml-1 hover:opacity-70"><RefreshCw className="w-3 h-3" /></button>
         </div>
       </div>
@@ -332,11 +330,11 @@ export default function AnalyticsPage() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-red-800 text-sm">Ollama tidak terdeteksi</p>
-              <p className="text-red-600 text-sm mt-1">Jalankan perintah berikut di terminal:</p>
+              <p className="font-semibold text-red-800 text-sm">Groq AI tidak dapat dihubungi</p>
+              <p className="text-red-600 text-sm mt-1">Periksa:</p>
               <div className="mt-2 space-y-1">
-                <code className="block bg-red-100 text-red-800 px-3 py-1.5 rounded-lg text-xs font-mono">ollama serve</code>
-                <code className="block bg-red-100 text-red-800 px-3 py-1.5 rounded-lg text-xs font-mono">ollama pull Gemma3</code>
+                <code className="block bg-red-100 text-red-800 px-3 py-1.5 rounded-lg text-xs font-mono">GROQ_API_KEY sudah diset di .env.local</code>
+                <code className="block bg-red-100 text-red-800 px-3 py-1.5 rounded-lg text-xs font-mono">Koneksi internet aktif</code>
               </div>
             </div>
           </div>

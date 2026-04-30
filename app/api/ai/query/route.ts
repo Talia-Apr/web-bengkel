@@ -1,605 +1,121 @@
-// app/api/ai/query/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
-import {
-  ollamaGenerate,
-  validateSQL,
-  cleanSQL,
-  checkOllamaHealth,
-  isSmallModel,
-} from '@/lib/groq'
-import {
-  DB_SCHEMA_CONTEXT_SMALL,
-  DB_SCHEMA_CONTEXT_FULL,
-  VALID_TABLE_NAMES,
-} from '@/lib/schema-context'
+import { ollamaGenerate, OllamaTimeoutError, validateSQL, cleanSQL, checkOllamaHealth } from '@/lib/groq'
+import { DB_SCHEMA_CONTEXT_FULL, VALID_TABLE_NAMES } from '@/lib/schema-context'
 
-export const maxDuration = 120
+export const maxDuration = 60
 export const dynamic     = 'force-dynamic'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// QUERY CACHE — query teruji, bypass Ollama sepenuhnya
-// Nama tabel sesuai skema app_bengkel
+// QUERY CACHE — SANGAT SEDIKIT, hanya exact match yang 100% pasti benar
+// Pertanyaan variatif langsung ke Groq supaya lebih fleksibel
 // ─────────────────────────────────────────────────────────────────────────────
- 
 const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
- 
-  // ══════════════════════════════════════════════════════════════════════════
-  // LABA & ESTIMASI PENDAPATAN (tambahan baru)
-  // ══════════════════════════════════════════════════════════════════════════
- 
-  // "laba per bulan" / "tren laba"
   {
-    pattern: /laba.*per.*bulan|tren.*laba|laba.*bulan/i,
-    sql: `
-      SELECT
-        DATE_FORMAT(n.tanggal_nota,'%M %Y') AS bulan,
-        SUM(dsj.harga)                       AS pendapatan_jasa,
-        SUM(ds.subtotal)                     AS pendapatan_sparepart,
-        SUM(
-          ds.subtotal - (sp.harga_beli * ds.jumlah)
-        )                                    AS laba_sparepart,
-        SUM(dsj.harga) + SUM(
-          ds.subtotal - (sp.harga_beli * ds.jumlah)
-        )                                    AS estimasi_laba_total
-      FROM nota n
-      JOIN servis s         ON n.id_servis      = s.id_servis
-      LEFT JOIN detail_servis_jasa dsj ON dsj.id_servis = s.id_servis
-      LEFT JOIN detail_sparepart ds    ON ds.id_servis  = s.id_servis
-      LEFT JOIN sparepart sp           ON ds.id_sparepart = sp.id_sparepart
-      WHERE n.status_pembayaran = 'lunas'
-        AND YEAR(n.tanggal_nota) = YEAR(NOW())
-      GROUP BY bulan
-      ORDER BY YEAR(tanggal_booking), MONTH(tanggal_booking)`,
+    pattern: /^berapa\s+total\s+booking\s+bulan\s+ini\s*\??$/i,
+    sql: `SELECT COUNT(*) AS total_booking FROM booking WHERE DATE_FORMAT(tanggal_booking,'%Y-%m') = DATE_FORMAT(NOW(),'%Y-%m') AND status_booking NOT IN ('dibatalkan','ditolak')`,
   },
- 
-  // "total laba" / "laba keseluruhan"
   {
-    pattern: /total.*laba|laba.*total|laba.*keseluruhan|keuntungan.*total|total.*keuntungan/i,
-    sql: `
-      SELECT
-        SUM(dsj.harga)                                      AS total_pendapatan_jasa,
-        SUM(ds.subtotal)                                    AS total_pendapatan_sparepart,
-        SUM(ds.subtotal - (sp.harga_beli * ds.jumlah))      AS laba_sparepart,
-        SUM(dsj.harga) + SUM(
-          ds.subtotal - (sp.harga_beli * ds.jumlah)
-        )                                                   AS estimasi_laba_total
-      FROM nota n
-      JOIN servis s                ON n.id_servis       = s.id_servis
-      LEFT JOIN detail_servis_jasa dsj ON dsj.id_servis = s.id_servis
-      LEFT JOIN detail_sparepart ds    ON ds.id_servis  = s.id_servis
-      LEFT JOIN sparepart sp           ON ds.id_sparepart = sp.id_sparepart
-      WHERE n.status_pembayaran = 'lunas'`,
+    pattern: /^berapa\s+total\s+booking\s+keseluruhan\s*\??$/i,
+    sql: `SELECT COUNT(*) AS total_booking FROM booking WHERE status_booking NOT IN ('dibatalkan','ditolak')`,
   },
- 
-  // "estimasi pendapatan belum lunas" / "potensi pendapatan"
   {
-    pattern: /estimasi.*pendapatan|potensi.*pendapatan|pendapatan.*belum.*lunas|belum.*lunas.*pendapatan/i,
-    sql: `
-      SELECT
-        COUNT(n.id_nota)          AS jumlah_nota_belum_lunas,
-        SUM(n.total_biaya)        AS estimasi_pendapatan,
-        MIN(n.jatuh_tempo)        AS jatuh_tempo_terdekat,
-        MAX(n.jatuh_tempo)        AS jatuh_tempo_terjauh
-      FROM nota n
-      WHERE n.status_pembayaran = 'belum_lunas'`,
+    pattern: /^berapa\s+(total\s+)?pendapatan\s+bulan\s+ini\s*\??$/i,
+    sql: `SELECT SUM(total_biaya) AS total_pendapatan, COUNT(*) AS jumlah_nota FROM nota WHERE status_pembayaran='lunas' AND DATE_FORMAT(tanggal_nota,'%Y-%m') = DATE_FORMAT(NOW(),'%Y-%m')`,
   },
- 
-  // "ringkasan pendapatan" / "summary pendapatan" — lunas vs belum lunas
   {
-    pattern: /ringkasan.*pendapatan|summary.*pendapatan|pendapatan.*lunas.*belum|lunas.*vs.*belum/i,
-    sql: `
-      SELECT
-        status_pembayaran,
-        COUNT(*)           AS jumlah_nota,
-        SUM(total_biaya)   AS total_biaya
-      FROM nota
-      GROUP BY status_pembayaran`,
+    pattern: /^berapa\s+(total\s+)?pendapatan\s+keseluruhan\s*\??$/i,
+    sql: `SELECT SUM(CASE WHEN status_pembayaran='lunas' THEN total_biaya ELSE 0 END) AS pendapatan_lunas, SUM(CASE WHEN status_pembayaran='belum_lunas' THEN total_biaya ELSE 0 END) AS piutang, SUM(total_biaya) AS total_seluruh FROM nota`,
   },
- 
-  // ══════════════════════════════════════════════════════════════════════════
-  // PENDAPATAN / NOTA — HARUS di atas pattern BOOKING
-  // ══════════════════════════════════════════════════════════════════════════
- 
-  // "tren pendapatan per bulan" — HARUS sebelum pattern booking per bulan
   {
-    pattern: /tren.*pendapatan|pendapatan.*per.*bulan|per.*bulan.*pendapatan|pendapatan.*tren/i,
-    sql: `
-      SELECT
-        DATE_FORMAT(tanggal_nota,'%M %Y') AS bulan,
-        SUM(total_biaya)                  AS pendapatan,
-        COUNT(*)                          AS jumlah_nota
-      FROM nota
-      WHERE status_pembayaran = 'lunas'
-        AND YEAR(tanggal_nota) = YEAR(NOW())
-      GROUP BY bulan
-      ORDER BY MIN(tanggal_nota)`,
+    pattern: /^(sparepart\s+)?(stok\s+)?(hampir\s+)?habis\s*\??$/i,
+    sql: `SELECT nama_sparepart, kategori, stok, satuan, harga_jual, CASE WHEN stok=0 THEN 'Habis' WHEN stok<=3 THEN 'Kritis' ELSE 'Menipis' END AS status_stok FROM sparepart WHERE stok<=10 AND (is_deleted=0 OR is_deleted IS NULL) ORDER BY stok ASC`,
   },
- 
-  // "pendapatan bulan ini"
-  {
-    pattern: /pendapatan.*bulan ini|bulan ini.*pendapatan/i,
-    sql: `
-      SELECT SUM(total_biaya) AS total_pendapatan, COUNT(*) AS jumlah_nota
-      FROM nota
-      WHERE status_pembayaran = 'lunas'
-        AND DATE_FORMAT(tanggal_nota,'%M %Y') = DATE_FORMAT(NOW(),'%M %Y')`,
-  },
- 
-  // "total pendapatan"
-  {
-    pattern: /total.*pendapatan|pendapatan.*total|pendapatan.*keseluruhan|revenue|pemasukan/i,
-    sql: `
-      SELECT
-        SUM(CASE WHEN status_pembayaran='lunas'       THEN total_biaya ELSE 0 END) AS pendapatan_lunas,
-        SUM(CASE WHEN status_pembayaran='belum_lunas' THEN total_biaya ELSE 0 END) AS estimasi_belum_lunas,
-        SUM(total_biaya)                                                            AS total_seluruh
-      FROM nota`,
-  },
- 
-  // "metode pembayaran"
-  {
-    pattern: /metode.*pembayaran|pembayaran.*metode|cara.*bayar/i,
-    sql: `
-      SELECT metode_pembayaran, COUNT(*) AS jumlah, SUM(total_biaya) AS total
-      FROM nota
-      GROUP BY metode_pembayaran
-      ORDER BY jumlah DESC`,
-  },
- 
-  // "nota belum lunas"
-  {
-    pattern: /nota.*belum.*lunas|belum.*lunas|belum.*bayar|hutang.*pelanggan/i,
-    sql: `
-      SELECT
-        u.nama,
-        p.nama_perusahaan,
-        p.term_of_payment,
-        n.total_biaya,
-        n.jatuh_tempo,
-        DATEDIFF(n.jatuh_tempo, CURDATE()) AS sisa_hari
-      FROM nota n
-      JOIN servis s   ON n.id_servis        = s.id_servis
-      JOIN booking b  ON s.id_booking       = b.id_booking
-      JOIN kendaraan k ON b.id_kendaraan    = k.id_kendaraan
-      JOIN pelanggan p ON k.id_pelanggan    = p.id_pelanggan
-      JOIN users u     ON p.id_user         = u.id_user
-      WHERE n.status_pembayaran = 'belum_lunas'
-      ORDER BY n.jatuh_tempo ASC`,
-  },
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // PERUSAHAAN
-  // ══════════════════════════════════════════════════════════════════════════
-  {
-    pattern: /perusahaan.*bekerja|kerja sama|rekanan|klien.*perusahaan|term.*of.*payment|tempo.*pembayaran|perusahaan.*term/i,
-    sql: `
-      SELECT
-        u.nama            AS nama_pelanggan,
-        p.nama_perusahaan,
-        p.term_of_payment,
-        p.no_telp,
-        p.alamat,
-        COUNT(b.id_booking) AS total_booking
-      FROM pelanggan p
-      JOIN users u      ON p.id_user       = u.id_user
-      LEFT JOIN kendaraan k ON k.id_pelanggan = p.id_pelanggan
-      LEFT JOIN booking b   ON b.id_kendaraan = k.id_kendaraan
-      WHERE p.jenis_pelanggan = 'perusahaan'
-        AND (p.is_deleted = 0 OR p.is_deleted IS NULL)
-      GROUP BY p.id_pelanggan, u.nama, p.nama_perusahaan, p.term_of_payment, p.no_telp, p.alamat
-      ORDER BY p.nama_perusahaan`,
-  },
-
-  
-  // "Perusahaan yang sering servis"
-  {
-    pattern: /perusahaan.*servis|servis.*perusahaan|perusahaan.*bekerja|kerja sama|rekanan|klien.*perusahaan|perusahaan.*berapa.*kali|term.*of.*payment/i,
-    sql: `
-      SELECT
-        p.nama_perusahaan,
-        u.nama              AS nama_kontak,
-        p.term_of_payment,
-        p.no_telp,
-        COUNT(DISTINCT b.id_booking)  AS total_booking,
-        COUNT(DISTINCT s.id_servis)   AS total_servis,
-        COALESCE(SUM(n.total_biaya), 0) AS total_transaksi
-      FROM pelanggan p
-      JOIN users u       ON p.id_user      = u.id_user
-      LEFT JOIN kendaraan k ON k.id_pelanggan = p.id_pelanggan
-      LEFT JOIN booking b   ON b.id_kendaraan = k.id_kendaraan
-        AND b.status_booking NOT IN ('dibatalkan', 'ditolak')
-      LEFT JOIN servis s ON s.id_booking   = b.id_booking
-      LEFT JOIN nota n   ON n.id_servis    = s.id_servis
-      WHERE p.jenis_pelanggan = 'perusahaan'
-        AND (p.is_deleted = 0 OR p.is_deleted IS NULL)
-      GROUP BY p.id_pelanggan, p.nama_perusahaan, u.nama, p.term_of_payment, p.no_telp
-      ORDER BY total_booking DESC`,
-  },
- 
-  // ══════════════════════════════════════════════════════════════════════════
-  // BOOKING
-  // ══════════════════════════════════════════════════════════════════════════
- 
-  // "booking hari ini per status"
-  {
-    pattern: /booking.*hari ini.*status|status.*booking.*hari ini|per.*status.*hari ini|hari ini.*per.*status/i,
-    sql: `
-      SELECT status_booking AS status, COUNT(*) AS jumlah
-      FROM booking
-      WHERE DATE(tanggal_booking) = CURDATE()
-      GROUP BY status_booking
-      ORDER BY jumlah DESC`,
-  },
- 
-  // "booking hari ini" — daftar detail
-  {
-    pattern: /booking.*hari ini|hari ini.*booking/i,
-    sql: `
-      SELECT
-        b.id_booking,
-        u.nama            AS pelanggan,
-        k.merk,
-        k.tipe,
-        k.nomor_polisi,
-        b.waktu_booking,
-        b.keluhan,
-        b.status_booking
-      FROM booking b
-      JOIN kendaraan k  ON b.id_kendaraan  = k.id_kendaraan
-      JOIN pelanggan p  ON k.id_pelanggan  = p.id_pelanggan
-      JOIN users u      ON p.id_user       = u.id_user
-      WHERE DATE(b.tanggal_booking) = CURDATE()
-      ORDER BY b.waktu_booking`,
-  },
- 
-  // "booking per bulan tahun ini"
-  {
-    pattern: /booking.*per.*bulan|per.*bulan.*booking/i,
-    sql: `
-      SELECT
-        DATE_FORMAT(tanggal_booking,'%M %Y') AS bulan,
-        COUNT(*)                             AS total_booking
-      FROM booking
-      WHERE YEAR(tanggal_booking) = YEAR(NOW())
-        AND status_booking NOT IN ('dibatalkan','ditolak')
-      GROUP BY bulan
-      ORDER BY YEAR(tanggal_booking), MONTH(tanggal_booking)`,
-  },
- 
-  // "booking bulan ini"
-  {
-  pattern: /booking.*bulan ini|bulan ini.*booking|total.*booking.*bulan ini/i,
-  sql: `
-    SELECT 
-      DATE_FORMAT(tanggal_booking, '%d %M %Y') AS tanggal,
-      COUNT(*) AS total_booking
-    FROM booking
-    WHERE 
-      YEAR(tanggal_booking) = YEAR(CURDATE())
-      AND MONTH(tanggal_booking) = MONTH(CURDATE())
-      AND status_booking NOT IN ('dibatalkan','ditolak')
-    GROUP BY DATE_FORMAT(tanggal_booking, '%d %M %Y')
-    ORDER BY MIN(tanggal_booking)
-  `,
-},
-
- 
-  // "booking tahun ini"
-  {
-    pattern: /booking.*tahun ini|tahun ini.*booking/i,
-    sql: `
-      SELECT COUNT(*) AS total_booking
-      FROM booking
-      WHERE YEAR(tanggal_booking) = YEAR(NOW())
-        AND status_booking NOT IN ('dibatalkan','ditolak')`,
-  },
- 
-  // "booking per tahun"
-  {
-    pattern: /per tahun|setiap tahun|tiap tahun/i,
-    sql: `
-      SELECT YEAR(tanggal_booking) AS tahun, COUNT(*) AS total_booking
-      FROM booking
-      WHERE status_booking NOT IN ('dibatalkan','ditolak')
-      GROUP BY tahun
-      ORDER BY tahun`,
-  },
-
-  // "total booking detail"
-  {
-    pattern: /booking.*bulan ini|total.*booking.*bulan ini/i,
-    sql: `
-      SELECT 
-        DATE_FORMAT(tanggal_booking, '%d %M %Y') AS tanggal,
-        COUNT(*) AS total_booking
-      FROM booking
-      WHERE 
-        YEAR(tanggal_booking) = YEAR(CURDATE())
-        AND MONTH(tanggal_booking) = MONTH(CURDATE())
-        AND status_booking NOT IN ('dibatalkan','ditolak')
-      GROUP BY DATE(tanggal_booking)
-      ORDER BY tanggal_booking
-    `,
-  },
- 
-  // "total booking"
-  {
-    pattern: /total.*booking|jumlah.*booking|berapa.*booking/i,
-    sql: `
-      SELECT COUNT(*) AS total_booking
-      FROM booking
-      WHERE status_booking NOT IN ('dibatalkan','ditolak')`,
-  },
- 
-  // "distribusi status booking"
-  {
-    pattern: /distribusi.*status|status.*booking|booking.*per.*status|per.*status/i,
-    sql: `
-      SELECT status_booking AS status, COUNT(*) AS jumlah
-      FROM booking
-      GROUP BY status_booking
-      ORDER BY jumlah DESC`,
-  },
- 
-  // ══════════════════════════════════════════════════════════════════════════
-  // SERVIS
-  // ══════════════════════════════════════════════════════════════════════════
- 
-  // "jasa servis terpopuler" — HARUS sebelum pattern sparepart sering
-  {
-    pattern: /jasa.*sering|jasa.*populer|populer.*jasa|jenis.*servis|tipe.*servis|jasa.*terbanyak|jasa.*terlaris/i,
-    sql: `
-      SELECT
-        js.nama_jasa,
-        COUNT(dsj.id_detail_jasa) AS total_pemakaian,
-        SUM(dsj.harga)            AS total_pendapatan
-      FROM detail_servis_jasa dsj
-      JOIN jasa_servis js ON dsj.id_jasa = js.id_jasa
-      GROUP BY js.id_jasa, js.nama_jasa
-      ORDER BY total_pemakaian DESC
-      LIMIT 10`,
-  },
- 
-  // "servis per bulan"
-  {
-    pattern: /servis.*per.*bulan|tren.*servis/i,
-    sql: `
-      SELECT
-        DATE_FORMAT(tanggal_servis,'%M %Y') AS bulan,
-        COUNT(*) AS total_servis
-      FROM servis
-      WHERE status_servis = 'selesai'
-        AND YEAR(tanggal_servis) = YEAR(NOW())
-      GROUP BY bulan
-      ORDER BY MIN(tanggal_servis)`,
-  },
- 
-  // ══════════════════════════════════════════════════════════════════════════
-  // MEKANIK
-  // ══════════════════════════════════════════════════════════════════════════
- 
-  {
-    pattern: /mekanik.*produktif|mekanik.*terbanyak|mekanik.*servis|servis.*mekanik|performa.*mekanik/i,
-    sql: `
-      SELECT
-        u.nama           AS mekanik,
-        m.spesialisasi,
-        COUNT(s.id_servis) AS total_servis,
-        SUM(CASE WHEN s.status_servis='selesai' THEN 1 ELSE 0 END) AS selesai
-      FROM servis s
-      JOIN mekanik m ON s.id_mekanik = m.id_mekanik
-      JOIN users u   ON m.id_user    = u.id_user
-      GROUP BY m.id_mekanik, u.nama, m.spesialisasi
-      ORDER BY total_servis DESC
-      LIMIT 10`,
-  },
-
-  // total mekanik 
-  {
-    pattern: /total.*mekanik|jumlah.*mekanik|berapa.*mekanik/i,
-    sql: `
-      SELECT
-        COUNT(*) AS total_mekanik,
-        SUM(CASE WHEN status = 'aktif'       THEN 1 ELSE 0 END) AS aktif,
-        SUM(CASE WHEN status = 'tidak_aktif' THEN 1 ELSE 0 END) AS tidak_aktif
-      FROM mekanik`,
-  },
- 
-  // ══════════════════════════════════════════════════════════════════════════
-  // PELANGGAN
-  // ══════════════════════════════════════════════════════════════════════════
- 
-  // "top 10 pelanggan"
-  {
-    pattern: /pelanggan.*terbanyak|pelanggan.*paling.*sering|paling.*sering.*servis|top.*pelanggan|10.*pelanggan|pelanggan.*booking.*terbanyak/i,
-    sql: `
-      SELECT
-        u.nama              AS pelanggan,
-        p.jenis_pelanggan,
-        COUNT(b.id_booking) AS total_booking,
-        COALESCE(SUM(n.total_biaya), 0) AS total_pendapatan
-      FROM pelanggan p
-      JOIN users u       ON p.id_user      = u.id_user
-      JOIN kendaraan k   ON k.id_pelanggan = p.id_pelanggan
-      JOIN booking b     ON b.id_kendaraan = k.id_kendaraan
-      LEFT JOIN servis s ON s.id_booking   = b.id_booking
-      LEFT JOIN nota n   ON n.id_servis    = s.id_servis
-      WHERE (p.is_deleted = 0 OR p.is_deleted IS NULL)
-        AND b.status_booking NOT IN ('dibatalkan', 'ditolak')
-      GROUP BY p.id_pelanggan, u.nama, p.jenis_pelanggan
-      ORDER BY total_booking DESC
-      LIMIT 10`,
-  },
- 
-  // "Jumlah Pelanggan Keseluruhan"
-  {
-    pattern: /total.*pelanggan|jumlah.*pelanggan|berapa.*pelanggan/i,
-    sql: `
-      SELECT COUNT(*) AS total_pelanggan
-      FROM pelanggan
-      WHERE is_deleted = 0 OR is_deleted IS NULL`,
-  },
-
-  // "Jumlah Pelanggan Perusahaan dan Individu"
-  {
-    pattern: /jumlah.*pelanggan.*individu|pelanggan.*individu.*perusahaan|distribusi.*pelanggan|pelanggan.*per.*jenis|jenis.*pelanggan/i,
-    sql: `
-      SELECT
-        jenis_pelanggan,
-        COUNT(*) AS jumlah
-      FROM pelanggan
-      WHERE is_deleted = 0 OR is_deleted IS NULL
-      GROUP BY jenis_pelanggan`,
-  },
- 
-  // ══════════════════════════════════════════════════════════════════════════
-  // KENDARAAN
-  // ══════════════════════════════════════════════════════════════════════════
- 
-  // "merk kendaraan paling sering masuk servis" — join ke booking agar relevan
-  {
-    pattern: /merk|merek|brand.*kendaraan|kendaraan.*merk|kendaraan.*sering|sering.*masuk/i,
-    sql: `
-      SELECT
-        k.merk,
-        COUNT(b.id_booking) AS jumlah_booking
-      FROM kendaraan k
-      JOIN booking b ON b.id_kendaraan = k.id_kendaraan
-      WHERE b.status_booking NOT IN ('dibatalkan','ditolak')
-      GROUP BY k.merk
-      ORDER BY jumlah_booking DESC
-      LIMIT 15`,
-  },
- 
-  {
-    pattern: /tipe.*kendaraan|model.*kendaraan|kendaraan.*tipe/i,
-    sql: `
-      SELECT
-        CONCAT(k.merk,' ',k.tipe) AS kendaraan,
-        COUNT(b.id_booking)        AS jumlah_booking
-      FROM kendaraan k
-      JOIN booking b ON b.id_kendaraan = k.id_kendaraan
-      WHERE b.status_booking NOT IN ('dibatalkan','ditolak')
-      GROUP BY k.merk, k.tipe
-      ORDER BY jumlah_booking DESC
-      LIMIT 20`,
-  },
- 
-  {
-    pattern: /total.*kendaraan|jumlah.*kendaraan|berapa.*kendaraan/i,
-    sql: `SELECT COUNT(*) AS total_kendaraan FROM kendaraan`,
-  },
- 
-  // ══════════════════════════════════════════════════════════════════════════
-  // SPAREPART — pattern "sering" HARUS lebih spesifik dari jasa
-  // ══════════════════════════════════════════════════════════════════════════
- 
-  // 1. FIX: sparepart hampir habis — hanya tampilkan yang stok <= 10
-  {
-    pattern: /stok.*habis|hampir.*habis|stok.*kritis|stok.*minim|sparepart.*habis/i,
-    sql: `
-      SELECT
-        nama_sparepart,
-        kategori,
-        mobil,
-        stok,
-        satuan,
-        harga_jual,
-        CASE
-          WHEN stok = 0   THEN 'Habis'
-          WHEN stok <= 3  THEN 'Kritis'
-          ELSE 'Menipis'
-        END AS status_stok
-      FROM sparepart
-      WHERE stok <= 10
-        AND (is_deleted = 0 OR is_deleted IS NULL)
-      ORDER BY stok ASC`,
-  },
- 
-  // "sparepart paling sering dipakai" — pattern lebih spesifik
-  {
-    pattern: /sparepart.*sering|sparepart.*populer|sparepart.*terlaris|sering.*dipakai.*sparepart|paling.*sering.*sparepart/i,
-    sql: `
-      SELECT
-        sp.nama_sparepart,
-        sp.kategori,
-        SUM(ds.jumlah)   AS total_dipakai,
-        SUM(ds.subtotal) AS total_pendapatan
-      FROM detail_sparepart ds
-      JOIN sparepart sp ON ds.id_sparepart = sp.id_sparepart
-      GROUP BY sp.id_sparepart, sp.nama_sparepart, sp.kategori
-      ORDER BY total_dipakai DESC
-      LIMIT 10`,
-  },
- 
-  // "daftar / semua sparepart"
-  {
-    pattern: /stok.*sparepart|daftar.*sparepart|semua.*sparepart|list.*sparepart/i,
-    sql: `
-      SELECT
-        nama_sparepart,
-        kode_sparepart,
-        kategori,
-        stok,
-        satuan,
-        harga_beli,
-        harga_jual
-      FROM sparepart
-      WHERE is_deleted = 0 OR is_deleted IS NULL
-      ORDER BY kategori, nama_sparepart
-      LIMIT 500`,
-  },
-
-  // "total pendapatan"
-  {
-    pattern: /pendapatan.*sparepart|total.*sparepart|semua.*sparepart|penjualan.*sparepart/i,
-    sql: `
-      SELECT 
-        SUM(harga_jual) 
-          AS total_pendapatan 
-          FROM sparepart 
-        WHERE is_deleted = 0 
-          OR is_deleted IS NULL
-      LIMIT 500`,
-  },
-
 ]
 
-function getPatternQuery(question: string): string | null {
-  const q = question.toLowerCase();
+// ─────────────────────────────────────────────────────────────────────────────
+// DETEKSI PERTANYAAN TIDAK RELEVAN
+// ─────────────────────────────────────────────────────────────────────────────
+const IRRELEVANT_PATTERNS = [
+  /^(halo|hai|hello|hi|hey)\b/i,
+  /^(apa kabar|how are you|good morning|selamat pagi|selamat siang|selamat malam)/i,
+  /^(terima kasih|makasih|thanks|thank you)/i,
+  /cuaca|weather|hujan|panas|dingin|suhu/i,
+  /presiden|gubernur|walikota|menteri|politik|pemilu|pilkada/i,
+  /harga\s+(emas|saham|bitcoin|dolar|euro|minyak|beras)/i,
+  /resep|masakan|makanan|minuman|restoran|kuliner/i,
+  /film|musik|lagu|artis|selebriti|drama|konser/i,
+  /puisi|cerpen|novel|cerita|dongeng/i,
+  /olahraga|sepak\s*bola|basket|bulu\s*tangkis|renang/i,
+  /covid|virus|vaksin|obat|penyakit|dokter|rumah\s*sakit/i,
+  /matematika|fisika|kimia|biologi|sejarah|geografi/i,
+  /siapa\s+(kamu|anda|claude|ai|bot|chatgpt)/i,
+  /apa\s+(itu|ini)\s+(ai|kecerdasan\s+buatan)/i,
+  /bisa\s+bantu\s+saya\s*(gak|tidak)?$/i,
+  /^(ok|oke|iya|ya|tidak|no|nope)\s*\.?\s*$/i,
+  /^.{1,4}$/i, // terlalu pendek
+]
 
-  if (q.includes('pelanggan') && q.includes('sering')) {
-    return `SELECT ANY_VALUE(u.nama) AS 'Pelanggan', COUNT(b.id_booking) AS 'Total Servis' 
-            FROM pelanggan p 
-            JOIN users u ON p.id_user = u.id_user 
-            JOIN kendaraan k ON k.id_pelanggan = p.id_pelanggan 
-            JOIN booking b ON b.id_kendaraan = k.id_kendaraan 
-            GROUP BY p.id_pelanggan 
-            ORDER BY COUNT(b.id_booking) DESC LIMIT 10`;
-  }
+const BENGKEL_KEYWORDS = [
+  'booking', 'servis', 'service', 'mekanik', 'pelanggan', 'customer',
+  'kendaraan', 'mobil', 'sparepart', 'spare part', 'nota', 'invoice',
+  'pembayaran', 'bayar', 'pendapatan', 'pemasukan', 'revenue', 'laba',
+  'bengkel', 'ganti', 'oli', 'rem', 'ban', 'ac', 'aki', 'filter',
+  'tune up', 'overhaul', 'servis rutin', 'total', 'jumlah', 'berapa',
+  'tampilkan', 'daftar', 'list', 'data', 'laporan', 'report',
+  'tren', 'trend', 'per bulan', 'per tahun', 'bulan ini', 'tahun ini',
+  'hari ini', 'selesai', 'aktif', 'lunas', 'piutang', 'hutang',
+  'perusahaan', 'individu', 'merk', 'follow up', 'followup',
+  'stok', 'stock', 'jasa', 'harga', 'diskon', 'keuntungan',
+  'merk kendaraan', 'nomor polisi', 'plat', 'kilometer',
+  'tanggal', 'waktu', 'jam', 'jadwal', 'slot', 'kapasitas',
+]
 
-  if (q.includes('sparepart') && (q.includes('sering') || q.includes('banyak'))) {
-    return `SELECT ANY_VALUE(s.nama_sparepart) AS 'Sparepart', SUM(d.jumlah) AS 'Total Dipakai' 
-            FROM detail_sparepart d 
-            JOIN sparepart s ON d.id_sparepart = s.id_sparepart 
-            GROUP BY d.id_sparepart 
-            ORDER BY SUM(d.jumlah) DESC LIMIT 10`;
-  }
-
-  if (q.includes('pendapatan') && q.includes('bulan ini')) {
-    return `SELECT SUM(total_biaya) AS 'Total Pendapatan' FROM nota 
-            WHERE DATE_FORMAT(tanggal_nota,'%Y-%m') = DATE_FORMAT(NOW(),'%Y-%m') 
-            AND status_pembayaran = 'lunas'`;
-  }
-
-  return null; // Jika tidak ada pola yang cocok, baru tanya Groq
+function isIrrelevant(q: string): boolean {
+  const lower = q.toLowerCase().trim()
+  if (IRRELEVANT_PATTERNS.some(p => p.test(lower))) return true
+  return !BENGKEL_KEYWORDS.some(kw => lower.includes(kw))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TIME FILTER
+// ERROR MESSAGES — ramah dan informatif
 // ─────────────────────────────────────────────────────────────────────────────
+const ERR = {
+  irrelevant: {
+    error: 'Pertanyaan tidak terkait data bengkel',
+    hint:  'Tanyakan seputar: booking, servis, mekanik, pelanggan, sparepart, pendapatan, atau nota. Contoh: "Berapa total booking bulan ini?"',
+  },
+  invalid_query: {
+    error: 'AI tidak dapat memahami pertanyaan ini',
+    hint:  'Coba formulasikan ulang. Contoh: "Tampilkan 10 pelanggan yang paling sering servis" atau "Berapa pendapatan bulan ini?"',
+  },
+  sql_invalid: (detail: string) => ({
+    error: `Query yang dihasilkan tidak valid`,
+    hint:  `${detail}. Coba pertanyaan yang lebih sederhana.`,
+  }),
+  table_invalid: (detail: string) => ({
+    error: `AI mencoba mengakses tabel yang tidak ada`,
+    hint:  `${detail}. Coba reformulasi pertanyaan.`,
+  }),
+  db_error: (detail: string) => ({
+    error: `Gagal mengambil data dari database`,
+    hint:  detail,
+  }),
+  groq_offline: {
+    error: 'AI Engine (Groq) tidak dapat dihubungi',
+    hint:  'Periksa GROQ_API_KEY di environment variables, atau cek status api.groq.com.',
+  },
+  timeout: {
+    error: 'AI terlalu lama memproses',
+    hint:  'Coba pertanyaan yang lebih singkat dan spesifik.',
+  },
+  no_key: {
+    error: 'Konfigurasi AI belum lengkap',
+    hint:  'GROQ_API_KEY belum diset di environment variables.',
+  },
+}
 
+// Time filter helpers
 const BULAN_ID: Record<string, string> = {
   januari:'01', februari:'02', maret:'03', april:'04', mei:'05', juni:'06',
   juli:'07', agustus:'08', september:'09', oktober:'10', november:'11', desember:'12',
@@ -629,16 +145,11 @@ function extractTimeFilter(q: string): TimeFilter | null {
 }
 
 function injectTimeFilter(sql: string, tf: TimeFilter): string {
-  // Temukan kolom tanggal pertama yang dipakai di SQL
-  const match = sql.match(/(?:DATE_FORMAT|YEAR|DATE)\(([a-z_.]+)\b/i)
-  const col   = match?.[1] ?? 'tanggal_booking'
-
-  const filter =
-  tf.type === 'yearmonth' && tf.month
+  const match  = sql.match(/(?:DATE_FORMAT|YEAR|DATE)\(([a-z_.]+)\b/i)
+  const col    = match?.[1] ?? 'tanggal_booking'
+  const filter = tf.type === 'yearmonth' && tf.month
     ? `YEAR(${col}) = ${tf.year} AND MONTH(${col}) = ${Number(tf.month)}`
     : `YEAR(${col}) = ${tf.year}`
-
-  // Ganti kondisi waktu generik yang sudah ada di SQL cache
   return sql
     .replace(/YEAR\([a-z_.]+\)\s*=\s*YEAR\(NOW\(\)\)/gi, filter)
     .replace(/DATE_FORMAT\([a-z_.]+,'%M %Y'\)\s*=\s*DATE_FORMAT\(NOW\(\),'%M %Y'\)/gi, filter)
@@ -655,18 +166,14 @@ function matchCache(q: string): string | null {
   return null
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
+// Helpers
 function detectColumnType(key: string, samples: any[]): 'number' | 'string' | 'date' {
   const k = key.toLowerCase()
   if (/^id_/.test(k)) return 'string'
   if (k === 'bulan' || k === 'tahun' || k.includes('tanggal') || k.includes('waktu')) return 'date'
-
   const nonNull = samples.filter(v => v !== null && v !== undefined)
   if (!nonNull.length) {
-    if (/total|jumlah|harga|biaya|pendapatan|stok|qty|subtotal|count/.test(k)) return 'number'
+    if (/total|jumlah|harga|biaya|pendapatan|stok|qty|subtotal|count|laba/.test(k)) return 'number'
     return 'string'
   }
   const first = nonNull[0]
@@ -698,11 +205,10 @@ function autoChartType(
   data: Record<string, any>[],
   question: string
 ): 'bar' | 'line' | 'pie' | 'table' {
-  const q       = question.toLowerCase()
-  const numCols = columns.filter(c => c.type === 'number')
-  const strCols = columns.filter(c => c.type === 'string')
+  const q        = question.toLowerCase()
+  const numCols  = columns.filter(c => c.type === 'number')
+  const strCols  = columns.filter(c => c.type === 'string')
   const dateCols = columns.filter(c => c.type === 'date')
-
   if (columns.length === 1 && numCols.length === 1) return 'table'
   if (dateCols.length >= 1 && numCols.length >= 1) return 'line'
   if (/tren|per bulan|per hari|bulanan/.test(q) && numCols.length >= 1) return 'line'
@@ -719,15 +225,12 @@ function buildSummary(
   if (!data.length) return 'Tidak ada data ditemukan.'
   const numCols = columns.filter(c => c.type === 'number')
   const strCols = columns.filter(c => c.type === 'string')
-
   if (data.length === 1 && numCols.length === 1) {
-    const v = data[0][numCols[0].key]
-    const isRupiah = /biaya|harga|pendapatan|bayar|total/.test(numCols[0].key.toLowerCase())
+    const v        = data[0][numCols[0].key]
+    const isRupiah = /biaya|harga|pendapatan|bayar|total|laba/.test(numCols[0].key.toLowerCase())
     return `${numCols[0].label}: ${isRupiah ? 'Rp ' + Number(v).toLocaleString('id-ID') : Number(v).toLocaleString('id-ID')}`
   }
-  if (numCols.length >= 2 && data.length > 1) {
-    return `${data.length} baris · ${numCols.map(c => c.label).join(', ')}`
-  }
+  if (numCols.length >= 2 && data.length > 1) return `${data.length} baris · ${numCols.map(c => c.label).join(', ')}`
   if (strCols.length >= 1 && numCols.length === 1 && data.length > 0) {
     const top = data[0]
     return `${data.length} data · Tertinggi: ${top[strCols[0].key]} (${Number(top[numCols[0].key]).toLocaleString('id-ID')})`
@@ -740,171 +243,142 @@ function validateTables(sql: string): { valid: boolean; reason?: string } {
   for (const m of matches) {
     const table = m.replace(/^(?:FROM|JOIN)\s+/i, '').toLowerCase()
     if (!(VALID_TABLE_NAMES as readonly string[]).includes(table)) {
-      return { valid: false, reason: `Tabel '${table}' tidak ada di skema` }
+      return { valid: false, reason: `Tabel '${table}' tidak ada di database bengkel` }
     }
   }
   return { valid: true }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET — health check
-// ─────────────────────────────────────────────────────────────────────────────
-
 export async function GET() {
   const health = await checkOllamaHealth()
   return NextResponse.json({
-    ollama:    health.online ? 'online' : 'offline',
-    model:     process.env.OLLAMA_MODEL || 'gemma3:1b',
-    ollamaUrl: process.env.OLLAMA_URL   || 'http://127.0.0.1:11434',
-    isSmallModel,
+    ollama: health.online ? 'online' : 'offline',
+    model:  process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
   })
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST — text → SQL → data → chart
-// ─────────────────────────────────────────────────────────────────────────────
-
 export async function POST(req: NextRequest) {
   try {
-    const body     = await req.json();
-    const question = (body.question ?? '').trim() as string;
+    const body     = await req.json()
+    const question = (body.question ?? '').trim() as string
 
-    
-
-    // ── 1. Validasi Input (Frontend-Backend Guard) ──────────────────────────
-    if (!question || question.length < 3) {
-      return NextResponse.json({ error: 'Pertanyaan terlalu pendek.' }, { status: 400 });
+    // ── 1. Validasi panjang ──────────────────────────────────────────────────
+    if (!question || question.length < 5) {
+      return NextResponse.json(ERR.irrelevant, { status: 400 })
     }
     if (question.length > 500) {
-      return NextResponse.json({ error: 'Pertanyaan terlalu panjang (maks 500 karakter).' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Pertanyaan terlalu panjang (maksimal 500 karakter)', hint: 'Sederhanakan pertanyaan.' },
+        { status: 400 }
+      )
     }
 
-    // Filter kata kunci tidak relevan (Opsional tapi bagus buat UX)
-    const blacklist = ['cuaca', 'politik', 'makanan', 'berita'];
-    if (blacklist.some(word => question.toLowerCase().includes(word))) {
-      return NextResponse.json({ 
-        error: 'Topik tidak relevan.', 
-        hint: 'Mohon tanyakan hal seputar operasional bengkel seperti mekanik, servis, atau sparepart.' 
-      }, { status: 400 });
+    // ── 2. Deteksi pertanyaan tidak relevan ──────────────────────────────────
+    if (isIrrelevant(question)) {
+      return NextResponse.json(ERR.irrelevant, { status: 422 })
     }
 
-    // ── 2. Cek Cache (Efisiensi) ──────────────────────────────────────────
-    let sql       = matchCache(question) ?? '';
-    let fromCache = !!sql;
+    // ── 3. Cek cache (hanya exact match) ─────────────────────────────────────
+    let sql       = matchCache(question) ?? ''
+    let fromCache = !!sql
 
     if (!sql) {
-      // ── 3. Cek Koneksi AI (Groq) ────────────────────────────────────────
+      // ── 4. Cek Groq API key ────────────────────────────────────────────────
       if (!process.env.GROQ_API_KEY) {
-        return NextResponse.json(
-          { error: 'Konfigurasi AI (Groq) belum terpasang.', hint: 'Cek environment variables di Vercel/Aiven.' },
-          { status: 500 }
-        );
+        return NextResponse.json(ERR.no_key, { status: 500 })
       }
 
-      // ── 4. Generate SQL via Groq ──────────────────────────────────────
-      const systemPrompt = isSmallModel ? DB_SCHEMA_CONTEXT_SMALL : DB_SCHEMA_CONTEXT_FULL;
-      let rawSQL: string;
-      let sql = getPatternQuery(question);
-      let fromAI = false;
-      
+      // ── 5. Cek koneksi Groq ───────────────────────────────────────────────
+      const health = await checkOllamaHealth()
+      if (!health.online) {
+        return NextResponse.json(ERR.groq_offline, { status: 503 })
+      }
+
+      // ── 6. Generate SQL via Groq ──────────────────────────────────────────
+      let rawSQL: string
       try {
-        // Ganti ollamaGenerate menjadi fungsi Groq kamu
         rawSQL = await ollamaGenerate(
-          systemPrompt,
-          `User Question: ${question}\nSQL:`,
-          { temperature: 0 } 
-        );
-      } catch (err: any) {
-        console.error('[ai/groq] Error:', err.message);
+          DB_SCHEMA_CONTEXT_FULL,
+          `Pertanyaan: ${question}\nSQL:`,
+          { temperature: 0, timeoutMs: 25_000 }
+        )
+      } catch (err) {
+        if (err instanceof OllamaTimeoutError) {
+          return NextResponse.json(ERR.timeout, { status: 504 })
+        }
+        const msg = (err as Error).message
         return NextResponse.json(
-          { error: 'Gagal menghubungi server AI.', hint: 'Periksa koneksi internet atau limit API Groq kamu.' },
-          { status: 504 }
-        );
+          { error: '❌ Gagal menghubungi Groq', hint: msg },
+          { status: 503 }
+        )
       }
-      if (!sql) {
-      // Jika tidak ada di pola, baru panggil AI
-      fromAI = true;
-      const rawSQL = await ollamaGenerate(DB_SCHEMA_CONTEXT_SMALL, question, { temperature: 0 });
-      sql = cleanSQL(rawSQL);
-    }
 
-      if (!rawSQL || rawSQL.toUpperCase().includes('INVALID_QUERY')) {
-        return NextResponse.json(
-          { error: 'AI tidak memahami perintah tersebut.', hint: 'Coba gunakan bahasa yang lebih baku (misal: "tampilkan total pendapatan bulan ini").' },
-          { status: 422 }
-        );
+      // ── 7. Cek INVALID_QUERY ──────────────────────────────────────────────
+      if (!rawSQL || rawSQL.trim().toUpperCase().includes('INVALID_QUERY')) {
+        return NextResponse.json(ERR.invalid_query, { status: 422 })
       }
-      sql = cleanSQL(rawSQL);
+
+      sql = cleanSQL(rawSQL)
     }
 
-    // ── 5. Keamanan SQL (Anti-Modifikasi Database) ─────────────────────────
-    const forbiddenWords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'TRUNCATE', 'ALTER', 'GRANT'];
-    if (forbiddenWords.some(word => sql.toUpperCase().includes(word))) {
-      return NextResponse.json({ 
-        error: 'Keamanan: Perintah tidak diizinkan.', 
-        hint: 'Sistem hanya mengizinkan pengambilan data (SELECT).' 
-      }, { status: 403 });
+    // ── 8. Validasi SQL ───────────────────────────────────────────────────────
+    const sqlCheck = validateSQL(sql)
+    if (!sqlCheck.valid) {
+      return NextResponse.json(ERR.sql_invalid(sqlCheck.reason ?? ''), { status: 422 })
     }
 
-    const sqlCheck = validateSQL(sql);
-    if (!sqlCheck.valid)
-      return NextResponse.json({ error: `SQL tidak valid: ${sqlCheck.reason}`, sql }, { status: 422 });
+    const tableCheck = validateTables(sql)
+    if (!tableCheck.valid) {
+      return NextResponse.json(ERR.table_invalid(tableCheck.reason ?? ''), { status: 422 })
+    }
 
-    const tableCheck = validateTables(sql);
-    if (!tableCheck.valid)
-      return NextResponse.json({ error: `SQL tidak valid: ${tableCheck.reason}`, sql }, { status: 422 });
-
-    // ── 6. Eksekusi MySQL (Aiven) ───────────────────────────────────────────
-    let rows: Record<string, any>[];
-
+    // ── 9. Eksekusi MySQL ─────────────────────────────────────────────────────
+    let rows: Record<string, any>[]
     try {
-      await pool.execute(`SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))`);
-      // Set bahasa Indonesia untuk nama bulan/hari
-      await pool.execute(`SET lc_time_names = 'id_ID'`);
-
-      const [result] = await pool.execute(sql);
-      rows = (result as any[]).map(serializeRow);
+      await pool.execute(`SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))`)
+      await pool.execute(`SET lc_time_names = 'id_ID'`)
+      const [result] = await pool.execute(sql)
+      rows = (result as any[]).map(serializeRow)
     } catch (dbErr: any) {
-      console.error('[ai/query] MySQL Error:', dbErr.message);
-      return NextResponse.json(
-        { error: `Database Error: ${dbErr.message}`, sql, hint: 'Terjadi kesalahan saat mengambil data dari Aiven.' },
-        { status: 422 }
-      );
+      console.error('[ai/query] MySQL error:', dbErr.message, '\nSQL:', sql)
+      return NextResponse.json(ERR.db_error(dbErr.message), { status: 422 })
     }
 
-    // ── 7. Penanganan Data Kosong ───────────────────────────────────────────
+    // ── 10. Data kosong ───────────────────────────────────────────────────────
     if (!rows.length) {
       return NextResponse.json({
         question, sql, fromCache,
         data: [], columns: [], chartType: 'table' as const,
-        summary: 'Data yang Anda cari tidak ditemukan di database.', rowCount: 0,
-      });
+        summary: '📭 Tidak ada data yang sesuai untuk filter tersebut.',
+        rowCount: 0,
+      })
     }
 
-    // ── 8. Metadata & Output ────────────────────────────────────────────────
-    const columns = Object.keys(rows[0]).map(key => ({
-      key,
-      label: makeLabel(key),
-      type:  detectColumnType(key, rows.slice(0, 5).map(r => r[key])),
-    }));
+    // ── 11. Metadata & output ─────────────────────────────────────────────────
+    const columns   = Object.keys(rows[0]).map(key => ({
+      key, label: makeLabel(key),
+      type: detectColumnType(key, rows.slice(0, 5).map(r => r[key])),
+    }))
+    const chartType = autoChartType(columns, rows, question)
+    const summary   = buildSummary(columns, rows)
 
-    const chartType = autoChartType(columns, rows, question);
-    const summary   = buildSummary(columns, rows);
-
-    // Cache hasil (Best-effort)
+    // Simpan ke cache DB
     pool.execute(
       `INSERT INTO query_cache (pertanyaan, sql_query, hasil_query) VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE sql_query = VALUES(sql_query), updated_at = NOW()`,
       [question, sql, JSON.stringify(rows.slice(0, 5))]
-    ).catch(() => {});
+    ).catch(() => {})
 
-    return NextResponse.json({
-      question, sql, data: rows, columns,
-      chartType, summary, rowCount: rows.length, fromCache,
-    });
+    return NextResponse.json({ question, sql, data: rows, columns, chartType, summary, rowCount: rows.length, fromCache })
 
   } catch (err: any) {
-    console.error('[ai/query] Global Error:', err);
-    return NextResponse.json({ error: 'Terjadi kesalahan internal pada server.' }, { status: 500 });
+    console.error('[ai/query] Unexpected error:', err)
+    if (err instanceof OllamaTimeoutError) {
+      return NextResponse.json(ERR.timeout, { status: 504 })
+    }
+    return NextResponse.json(
+      { error: '❌ Terjadi kesalahan sistem', hint: 'Coba lagi dalam beberapa saat.' },
+      { status: 500 }
+    )
   }
 }
