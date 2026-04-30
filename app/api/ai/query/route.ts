@@ -20,9 +20,10 @@ export const dynamic     = 'force-dynamic'
 const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
  
   // ══════════════════════════════════════════════════════════════════════════
-  // LABA & ESTIMASI PENDAPATAN
+  // LABA & ESTIMASI PENDAPATAN (tambahan baru)
   // ══════════════════════════════════════════════════════════════════════════
  
+  // "laba per bulan" / "tren laba"
   {
     pattern: /laba.*per.*bulan|tren.*laba|laba.*bulan/i,
     sql: `
@@ -47,6 +48,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY YEAR(tanggal_booking), MONTH(tanggal_booking)`,
   },
  
+  // "total laba" / "laba keseluruhan"
   {
     pattern: /total.*laba|laba.*total|laba.*keseluruhan|keuntungan.*total|total.*keuntungan/i,
     sql: `
@@ -65,33 +67,11 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       WHERE n.status_pembayaran = 'lunas'`,
   },
  
-  {
-    pattern: /estimasi.*pendapatan|potensi.*pendapatan|pendapatan.*belum.*lunas|belum.*lunas.*pendapatan/i,
-    sql: `
-      SELECT
-        COUNT(n.id_nota)          AS jumlah_nota_belum_lunas,
-        SUM(n.total_biaya)        AS estimasi_pendapatan,
-        MIN(n.jatuh_tempo)        AS jatuh_tempo_terdekat,
-        MAX(n.jatuh_tempo)        AS jatuh_tempo_terjauh
-      FROM nota n
-      WHERE n.status_pembayaran = 'belum_lunas'`,
-  },
- 
-  {
-    pattern: /ringkasan.*pendapatan|summary.*pendapatan|pendapatan.*lunas.*belum|lunas.*vs.*belum/i,
-    sql: `
-      SELECT
-        status_pembayaran,
-        COUNT(*)           AS jumlah_nota,
-        SUM(total_biaya)   AS total_biaya
-      FROM nota
-      GROUP BY status_pembayaran`,
-  },
- 
   // ══════════════════════════════════════════════════════════════════════════
-  // PENDAPATAN / NOTA
+  // PENDAPATAN / NOTA — HARUS di atas pattern BOOKING
   // ══════════════════════════════════════════════════════════════════════════
  
+  // "tren pendapatan per bulan" — HARUS sebelum pattern booking per bulan
   {
     pattern: /tren.*pendapatan|pendapatan.*per.*bulan|per.*bulan.*pendapatan|pendapatan.*tren/i,
     sql: `
@@ -106,6 +86,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY MIN(tanggal_nota)`,
   },
  
+  // "pendapatan bulan ini"
   {
     pattern: /pendapatan.*bulan ini|bulan ini.*pendapatan/i,
     sql: `
@@ -115,6 +96,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
         AND DATE_FORMAT(tanggal_nota,'%M %Y') = DATE_FORMAT(NOW(),'%M %Y')`,
   },
  
+  // "total pendapatan"
   {
     pattern: /total.*pendapatan|pendapatan.*total|pendapatan.*keseluruhan|revenue|pemasukan/i,
     sql: `
@@ -124,40 +106,10 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
         SUM(total_biaya)                                                            AS total_seluruh
       FROM nota`,
   },
- 
-  {
-    pattern: /metode.*pembayaran|pembayaran.*metode|cara.*bayar/i,
-    sql: `
-      SELECT metode_pembayaran, COUNT(*) AS jumlah, SUM(total_biaya) AS total
-      FROM nota
-      GROUP BY metode_pembayaran
-      ORDER BY jumlah DESC`,
-  },
- 
-  {
-    pattern: /nota.*belum.*lunas|belum.*lunas|belum.*bayar|hutang.*pelanggan/i,
-    sql: `
-      SELECT
-        u.nama,
-        p.nama_perusahaan,
-        p.term_of_payment,
-        n.total_biaya,
-        n.jatuh_tempo,
-        DATEDIFF(n.jatuh_tempo, CURDATE()) AS sisa_hari
-      FROM nota n
-      JOIN servis s   ON n.id_servis        = s.id_servis
-      JOIN booking b  ON s.id_booking       = b.id_booking
-      JOIN kendaraan k ON b.id_kendaraan    = k.id_kendaraan
-      JOIN pelanggan p ON k.id_pelanggan    = p.id_pelanggan
-      JOIN users u     ON p.id_user         = u.id_user
-      WHERE n.status_pembayaran = 'belum_lunas'
-      ORDER BY n.jatuh_tempo ASC`,
-  },
 
   // ══════════════════════════════════════════════════════════════════════════
   // PERUSAHAAN
   // ══════════════════════════════════════════════════════════════════════════
-
   {
     pattern: /perusahaan.*bekerja|kerja sama|rekanan|klien.*perusahaan|term.*of.*payment|tempo.*pembayaran|perusahaan.*term/i,
     sql: `
@@ -177,9 +129,10 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       GROUP BY p.id_pelanggan, u.nama, p.nama_perusahaan, p.term_of_payment, p.no_telp, p.alamat
       ORDER BY p.nama_perusahaan`,
   },
-
+  
+  // "Perusahaan yang sering servis"
   {
-    pattern: /perusahaan.*servis|servis.*perusahaan|perusahaan.*berapa.*kali/i,
+    pattern: /perusahaan.*servis|servis.*perusahaan|perusahaan.*bekerja|kerja sama|rekanan|klien.*perusahaan|perusahaan.*berapa.*kali|term.*of.*payment/i,
     sql: `
       SELECT
         p.nama_perusahaan,
@@ -206,6 +159,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   // BOOKING
   // ══════════════════════════════════════════════════════════════════════════
  
+  // "booking hari ini per status"
   {
     pattern: /booking.*hari ini.*status|status.*booking.*hari ini|per.*status.*hari ini|hari ini.*per.*status/i,
     sql: `
@@ -216,6 +170,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY jumlah DESC`,
   },
  
+  // "booking hari ini" — daftar detail
   {
     pattern: /booking.*hari ini|hari ini.*booking/i,
     sql: `
@@ -236,6 +191,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY b.waktu_booking`,
   },
  
+  // "booking per bulan tahun ini"
   {
     pattern: /booking.*per.*bulan|per.*bulan.*booking/i,
     sql: `
@@ -249,21 +205,25 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY YEAR(tanggal_booking), MONTH(tanggal_booking)`,
   },
  
+  // "booking bulan ini"
   {
-    pattern: /booking.*bulan ini|bulan ini.*booking|total.*booking.*bulan ini/i,
-    sql: `
-      SELECT 
-        DATE_FORMAT(tanggal_booking, '%d %M %Y') AS tanggal,
-        COUNT(*) AS total_booking
-      FROM booking
-      WHERE 
-        YEAR(tanggal_booking) = YEAR(CURDATE())
-        AND MONTH(tanggal_booking) = MONTH(CURDATE())
-        AND status_booking NOT IN ('dibatalkan','ditolak')
-      GROUP BY DATE_FORMAT(tanggal_booking, '%d %M %Y')
-      ORDER BY MIN(tanggal_booking)`,
-  },
+  pattern: /booking.*bulan ini|bulan ini.*booking|total.*booking.*bulan ini/i,
+  sql: `
+    SELECT 
+      DATE_FORMAT(tanggal_booking, '%d %M %Y') AS tanggal,
+      COUNT(*) AS total_booking
+    FROM booking
+    WHERE 
+      YEAR(tanggal_booking) = YEAR(CURDATE())
+      AND MONTH(tanggal_booking) = MONTH(CURDATE())
+      AND status_booking NOT IN ('dibatalkan','ditolak')
+    GROUP BY DATE_FORMAT(tanggal_booking, '%d %M %Y')
+    ORDER BY MIN(tanggal_booking)
+  `,
+},
+
  
+  // "booking tahun ini"
   {
     pattern: /booking.*tahun ini|tahun ini.*booking/i,
     sql: `
@@ -273,6 +233,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
         AND status_booking NOT IN ('dibatalkan','ditolak')`,
   },
  
+  // "booking per tahun"
   {
     pattern: /per tahun|setiap tahun|tiap tahun/i,
     sql: `
@@ -282,7 +243,25 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       GROUP BY tahun
       ORDER BY tahun`,
   },
+
+  // "total booking detail"
+  {
+    pattern: /booking.*bulan ini|total.*booking.*bulan ini/i,
+    sql: `
+      SELECT 
+        DATE_FORMAT(tanggal_booking, '%d %M %Y') AS tanggal,
+        COUNT(*) AS total_booking
+      FROM booking
+      WHERE 
+        YEAR(tanggal_booking) = YEAR(CURDATE())
+        AND MONTH(tanggal_booking) = MONTH(CURDATE())
+        AND status_booking NOT IN ('dibatalkan','ditolak')
+      GROUP BY DATE(tanggal_booking)
+      ORDER BY tanggal_booking
+    `,
+  },
  
+  // "total booking"
   {
     pattern: /total.*booking|jumlah.*booking|berapa.*booking/i,
     sql: `
@@ -291,6 +270,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       WHERE status_booking NOT IN ('dibatalkan','ditolak')`,
   },
  
+  // "distribusi status booking"
   {
     pattern: /distribusi.*status|status.*booking|booking.*per.*status|per.*status/i,
     sql: `
@@ -304,6 +284,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   // SERVIS
   // ══════════════════════════════════════════════════════════════════════════
  
+  // "jasa servis terpopuler" — HARUS sebelum pattern sparepart sering
   {
     pattern: /jasa.*sering|jasa.*populer|populer.*jasa|jenis.*servis|tipe.*servis|jasa.*terbanyak|jasa.*terlaris/i,
     sql: `
@@ -318,6 +299,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       LIMIT 10`,
   },
  
+  // "servis per bulan"
   {
     pattern: /servis.*per.*bulan|tren.*servis/i,
     sql: `
@@ -351,6 +333,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       LIMIT 10`,
   },
 
+  // total mekanik 
   {
     pattern: /total.*mekanik|jumlah.*mekanik|berapa.*mekanik/i,
     sql: `
@@ -365,8 +348,9 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   // PELANGGAN
   // ══════════════════════════════════════════════════════════════════════════
  
+  // "top 10 pelanggan"
   {
-    pattern: /pelanggan.*terbanyak|pelanggan.*paling.*sering|paling.*sering.*servis|top.*pelanggan|10.*pelanggan|pelanggan.*booking.*terbanyak|pelanggan.*sering/i,
+    pattern: /pelanggan.*terbanyak|pelanggan.*paling.*sering|paling.*sering.*servis|top.*pelanggan|10.*pelanggan|pelanggan.*booking.*terbanyak/i,
     sql: `
       SELECT
         u.nama              AS pelanggan,
@@ -386,6 +370,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       LIMIT 10`,
   },
  
+  // "Jumlah Pelanggan Keseluruhan"
   {
     pattern: /total.*pelanggan|jumlah.*pelanggan|berapa.*pelanggan/i,
     sql: `
@@ -394,6 +379,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       WHERE is_deleted = 0 OR is_deleted IS NULL`,
   },
 
+  // "Jumlah Pelanggan Perusahaan dan Individu"
   {
     pattern: /jumlah.*pelanggan.*individu|pelanggan.*individu.*perusahaan|distribusi.*pelanggan|pelanggan.*per.*jenis|jenis.*pelanggan/i,
     sql: `
@@ -409,6 +395,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   // KENDARAAN
   // ══════════════════════════════════════════════════════════════════════════
  
+  // "merk kendaraan paling sering masuk servis" — join ke booking agar relevan
   {
     pattern: /merk|merek|brand.*kendaraan|kendaraan.*merk|kendaraan.*sering|sering.*masuk/i,
     sql: `
@@ -443,9 +430,10 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   },
  
   // ══════════════════════════════════════════════════════════════════════════
-  // SPAREPART
+  // SPAREPART — pattern "sering" HARUS lebih spesifik dari jasa
   // ══════════════════════════════════════════════════════════════════════════
  
+  // 1. FIX: sparepart hampir habis — hanya tampilkan yang stok <= 10
   {
     pattern: /stok.*habis|hampir.*habis|stok.*kritis|stok.*minim|sparepart.*habis/i,
     sql: `
@@ -467,6 +455,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY stok ASC`,
   },
  
+  // "sparepart paling sering dipakai" 
   {
     pattern: /sparepart.*sering|sparepart.*populer|sparepart.*terlaris|sering.*dipakai.*sparepart|paling.*sering.*sparepart/i,
     sql: `
@@ -482,6 +471,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       LIMIT 10`,
   },
  
+  // "daftar / semua sparepart"
   {
     pattern: /stok.*sparepart|daftar.*sparepart|semua.*sparepart|list.*sparepart/i,
     sql: `
@@ -499,14 +489,19 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       LIMIT 500`,
   },
 
+  // "total pendapatan"
   {
-    pattern: /pendapatan.*sparepart|total.*sparepart|penjualan.*sparepart/i,
+    pattern: /pendapatan.*sparepart|total.*sparepart|semua.*sparepart|penjualan.*sparepart/i,
     sql: `
       SELECT 
-        SUM(harga_jual) AS total_pendapatan
-      FROM sparepart
-      WHERE is_deleted = 0 OR is_deleted IS NULL`,
+        SUM(harga_jual) 
+          AS total_pendapatan 
+          FROM sparepart 
+        WHERE is_deleted = 0 
+          OR is_deleted IS NULL
+      LIMIT 500`,
   },
+
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
