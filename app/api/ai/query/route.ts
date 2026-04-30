@@ -17,18 +17,12 @@ import {
 export const maxDuration = 120
 export const dynamic     = 'force-dynamic'
 
-// ─────────────────────────────────────────────────────────────────────────────
-// QUERY CACHE — query teruji, bypass Ollama sepenuhnya
-// Nama tabel sesuai skema app_bengkel
-// ─────────────────────────────────────────────────────────────────────────────
- 
 const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
  
   // ══════════════════════════════════════════════════════════════════════════
-  // LABA & ESTIMASI PENDAPATAN (tambahan baru)
+  // LABA & ESTIMASI PENDAPATAN
   // ══════════════════════════════════════════════════════════════════════════
  
-  // "laba per bulan" / "tren laba"
   {
     pattern: /laba.*per.*bulan|tren.*laba|laba.*bulan/i,
     sql: `
@@ -53,7 +47,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY YEAR(tanggal_booking), MONTH(tanggal_booking)`,
   },
  
-  // "total laba" / "laba keseluruhan"
   {
     pattern: /total.*laba|laba.*total|laba.*keseluruhan|keuntungan.*total|total.*keuntungan/i,
     sql: `
@@ -72,7 +65,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       WHERE n.status_pembayaran = 'lunas'`,
   },
  
-  // "estimasi pendapatan belum lunas" / "potensi pendapatan"
   {
     pattern: /estimasi.*pendapatan|potensi.*pendapatan|pendapatan.*belum.*lunas|belum.*lunas.*pendapatan/i,
     sql: `
@@ -85,7 +77,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       WHERE n.status_pembayaran = 'belum_lunas'`,
   },
  
-  // "ringkasan pendapatan" / "summary pendapatan" — lunas vs belum lunas
   {
     pattern: /ringkasan.*pendapatan|summary.*pendapatan|pendapatan.*lunas.*belum|lunas.*vs.*belum/i,
     sql: `
@@ -98,10 +89,9 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   },
  
   // ══════════════════════════════════════════════════════════════════════════
-  // PENDAPATAN / NOTA — HARUS di atas pattern BOOKING
+  // PENDAPATAN / NOTA
   // ══════════════════════════════════════════════════════════════════════════
  
-  // "tren pendapatan per bulan" — HARUS sebelum pattern booking per bulan
   {
     pattern: /tren.*pendapatan|pendapatan.*per.*bulan|per.*bulan.*pendapatan|pendapatan.*tren/i,
     sql: `
@@ -116,7 +106,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY MIN(tanggal_nota)`,
   },
  
-  // "pendapatan bulan ini"
   {
     pattern: /pendapatan.*bulan ini|bulan ini.*pendapatan/i,
     sql: `
@@ -126,7 +115,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
         AND DATE_FORMAT(tanggal_nota,'%M %Y') = DATE_FORMAT(NOW(),'%M %Y')`,
   },
  
-  // "total pendapatan"
   {
     pattern: /total.*pendapatan|pendapatan.*total|pendapatan.*keseluruhan|revenue|pemasukan/i,
     sql: `
@@ -137,7 +125,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       FROM nota`,
   },
  
-  // "metode pembayaran"
   {
     pattern: /metode.*pembayaran|pembayaran.*metode|cara.*bayar/i,
     sql: `
@@ -147,7 +134,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY jumlah DESC`,
   },
  
-  // "nota belum lunas"
   {
     pattern: /nota.*belum.*lunas|belum.*lunas|belum.*bayar|hutang.*pelanggan/i,
     sql: `
@@ -171,6 +157,7 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   // ══════════════════════════════════════════════════════════════════════════
   // PERUSAHAAN
   // ══════════════════════════════════════════════════════════════════════════
+
   {
     pattern: /perusahaan.*bekerja|kerja sama|rekanan|klien.*perusahaan|term.*of.*payment|tempo.*pembayaran|perusahaan.*term/i,
     sql: `
@@ -191,10 +178,8 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY p.nama_perusahaan`,
   },
 
-  
-  // "Perusahaan yang sering servis"
   {
-    pattern: /perusahaan.*servis|servis.*perusahaan|perusahaan.*bekerja|kerja sama|rekanan|klien.*perusahaan|perusahaan.*berapa.*kali|term.*of.*payment/i,
+    pattern: /perusahaan.*servis|servis.*perusahaan|perusahaan.*berapa.*kali/i,
     sql: `
       SELECT
         p.nama_perusahaan,
@@ -221,7 +206,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   // BOOKING
   // ══════════════════════════════════════════════════════════════════════════
  
-  // "booking hari ini per status"
   {
     pattern: /booking.*hari ini.*status|status.*booking.*hari ini|per.*status.*hari ini|hari ini.*per.*status/i,
     sql: `
@@ -232,7 +216,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY jumlah DESC`,
   },
  
-  // "booking hari ini" — daftar detail
   {
     pattern: /booking.*hari ini|hari ini.*booking/i,
     sql: `
@@ -253,7 +236,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY b.waktu_booking`,
   },
  
-  // "booking per bulan tahun ini"
   {
     pattern: /booking.*per.*bulan|per.*bulan.*booking/i,
     sql: `
@@ -267,48 +249,8 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY YEAR(tanggal_booking), MONTH(tanggal_booking)`,
   },
  
-  // "booking bulan ini"
   {
-  pattern: /booking.*bulan ini|bulan ini.*booking|total.*booking.*bulan ini/i,
-  sql: `
-    SELECT 
-      DATE_FORMAT(tanggal_booking, '%d %M %Y') AS tanggal,
-      COUNT(*) AS total_booking
-    FROM booking
-    WHERE 
-      YEAR(tanggal_booking) = YEAR(CURDATE())
-      AND MONTH(tanggal_booking) = MONTH(CURDATE())
-      AND status_booking NOT IN ('dibatalkan','ditolak')
-    GROUP BY DATE_FORMAT(tanggal_booking, '%d %M %Y')
-    ORDER BY MIN(tanggal_booking)
-  `,
-},
-
- 
-  // "booking tahun ini"
-  {
-    pattern: /booking.*tahun ini|tahun ini.*booking/i,
-    sql: `
-      SELECT COUNT(*) AS total_booking
-      FROM booking
-      WHERE YEAR(tanggal_booking) = YEAR(NOW())
-        AND status_booking NOT IN ('dibatalkan','ditolak')`,
-  },
- 
-  // "booking per tahun"
-  {
-    pattern: /per tahun|setiap tahun|tiap tahun/i,
-    sql: `
-      SELECT YEAR(tanggal_booking) AS tahun, COUNT(*) AS total_booking
-      FROM booking
-      WHERE status_booking NOT IN ('dibatalkan','ditolak')
-      GROUP BY tahun
-      ORDER BY tahun`,
-  },
-
-  // "total booking detail"
-  {
-    pattern: /booking.*bulan ini|total.*booking.*bulan ini/i,
+    pattern: /booking.*bulan ini|bulan ini.*booking|total.*booking.*bulan ini/i,
     sql: `
       SELECT 
         DATE_FORMAT(tanggal_booking, '%d %M %Y') AS tanggal,
@@ -318,12 +260,29 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
         YEAR(tanggal_booking) = YEAR(CURDATE())
         AND MONTH(tanggal_booking) = MONTH(CURDATE())
         AND status_booking NOT IN ('dibatalkan','ditolak')
-      GROUP BY DATE(tanggal_booking)
-      ORDER BY tanggal_booking
-    `,
+      GROUP BY DATE_FORMAT(tanggal_booking, '%d %M %Y')
+      ORDER BY MIN(tanggal_booking)`,
   },
  
-  // "total booking"
+  {
+    pattern: /booking.*tahun ini|tahun ini.*booking/i,
+    sql: `
+      SELECT COUNT(*) AS total_booking
+      FROM booking
+      WHERE YEAR(tanggal_booking) = YEAR(NOW())
+        AND status_booking NOT IN ('dibatalkan','ditolak')`,
+  },
+ 
+  {
+    pattern: /per tahun|setiap tahun|tiap tahun/i,
+    sql: `
+      SELECT YEAR(tanggal_booking) AS tahun, COUNT(*) AS total_booking
+      FROM booking
+      WHERE status_booking NOT IN ('dibatalkan','ditolak')
+      GROUP BY tahun
+      ORDER BY tahun`,
+  },
+ 
   {
     pattern: /total.*booking|jumlah.*booking|berapa.*booking/i,
     sql: `
@@ -332,7 +291,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       WHERE status_booking NOT IN ('dibatalkan','ditolak')`,
   },
  
-  // "distribusi status booking"
   {
     pattern: /distribusi.*status|status.*booking|booking.*per.*status|per.*status/i,
     sql: `
@@ -346,7 +304,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   // SERVIS
   // ══════════════════════════════════════════════════════════════════════════
  
-  // "jasa servis terpopuler" — HARUS sebelum pattern sparepart sering
   {
     pattern: /jasa.*sering|jasa.*populer|populer.*jasa|jenis.*servis|tipe.*servis|jasa.*terbanyak|jasa.*terlaris/i,
     sql: `
@@ -361,7 +318,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       LIMIT 10`,
   },
  
-  // "servis per bulan"
   {
     pattern: /servis.*per.*bulan|tren.*servis/i,
     sql: `
@@ -395,7 +351,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       LIMIT 10`,
   },
 
-  // total mekanik 
   {
     pattern: /total.*mekanik|jumlah.*mekanik|berapa.*mekanik/i,
     sql: `
@@ -410,9 +365,8 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   // PELANGGAN
   // ══════════════════════════════════════════════════════════════════════════
  
-  // "top 10 pelanggan"
   {
-    pattern: /pelanggan.*terbanyak|pelanggan.*paling.*sering|paling.*sering.*servis|top.*pelanggan|10.*pelanggan|pelanggan.*booking.*terbanyak/i,
+    pattern: /pelanggan.*terbanyak|pelanggan.*paling.*sering|paling.*sering.*servis|top.*pelanggan|10.*pelanggan|pelanggan.*booking.*terbanyak|pelanggan.*sering/i,
     sql: `
       SELECT
         u.nama              AS pelanggan,
@@ -432,7 +386,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       LIMIT 10`,
   },
  
-  // "Jumlah Pelanggan Keseluruhan"
   {
     pattern: /total.*pelanggan|jumlah.*pelanggan|berapa.*pelanggan/i,
     sql: `
@@ -441,7 +394,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       WHERE is_deleted = 0 OR is_deleted IS NULL`,
   },
 
-  // "Jumlah Pelanggan Perusahaan dan Individu"
   {
     pattern: /jumlah.*pelanggan.*individu|pelanggan.*individu.*perusahaan|distribusi.*pelanggan|pelanggan.*per.*jenis|jenis.*pelanggan/i,
     sql: `
@@ -457,7 +409,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   // KENDARAAN
   // ══════════════════════════════════════════════════════════════════════════
  
-  // "merk kendaraan paling sering masuk servis" — join ke booking agar relevan
   {
     pattern: /merk|merek|brand.*kendaraan|kendaraan.*merk|kendaraan.*sering|sering.*masuk/i,
     sql: `
@@ -492,10 +443,9 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
   },
  
   // ══════════════════════════════════════════════════════════════════════════
-  // SPAREPART — pattern "sering" HARUS lebih spesifik dari jasa
+  // SPAREPART
   // ══════════════════════════════════════════════════════════════════════════
  
-  // 1. FIX: sparepart hampir habis — hanya tampilkan yang stok <= 10
   {
     pattern: /stok.*habis|hampir.*habis|stok.*kritis|stok.*minim|sparepart.*habis/i,
     sql: `
@@ -517,7 +467,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       ORDER BY stok ASC`,
   },
  
-  // "sparepart paling sering dipakai" — pattern lebih spesifik
   {
     pattern: /sparepart.*sering|sparepart.*populer|sparepart.*terlaris|sering.*dipakai.*sparepart|paling.*sering.*sparepart/i,
     sql: `
@@ -533,7 +482,6 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       LIMIT 10`,
   },
  
-  // "daftar / semua sparepart"
   {
     pattern: /stok.*sparepart|daftar.*sparepart|semua.*sparepart|list.*sparepart/i,
     sql: `
@@ -551,49 +499,38 @@ const QUERY_CACHE: Array<{ pattern: RegExp; sql: string }> = [
       LIMIT 500`,
   },
 
-  // "total pendapatan"
   {
-    pattern: /pendapatan.*sparepart|total.*sparepart|semua.*sparepart|penjualan.*sparepart/i,
+    pattern: /pendapatan.*sparepart|total.*sparepart|penjualan.*sparepart/i,
     sql: `
       SELECT 
-        SUM(harga_jual) 
-          AS total_pendapatan 
-          FROM sparepart 
-        WHERE is_deleted = 0 
-          OR is_deleted IS NULL
-      LIMIT 500`,
+        SUM(harga_jual) AS total_pendapatan
+      FROM sparepart
+      WHERE is_deleted = 0 OR is_deleted IS NULL`,
   },
-
 ]
 
-function getPatternQuery(question: string): string | null {
-  const q = question.toLowerCase();
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER: getPatternQuery (simple keyword fallback)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  if (q.includes('pelanggan') && q.includes('sering')) {
-    return `SELECT ANY_VALUE(u.nama) AS 'Pelanggan', COUNT(b.id_booking) AS 'Total Servis' 
-            FROM pelanggan p 
-            JOIN users u ON p.id_user = u.id_user 
-            JOIN kendaraan k ON k.id_pelanggan = p.id_pelanggan 
-            JOIN booking b ON b.id_kendaraan = k.id_kendaraan 
-            GROUP BY p.id_pelanggan 
-            ORDER BY COUNT(b.id_booking) DESC LIMIT 10`;
-  }
+function getPatternQuery(question: string): string | null {
+  const q = question.toLowerCase()
 
   if (q.includes('sparepart') && (q.includes('sering') || q.includes('banyak'))) {
     return `SELECT ANY_VALUE(s.nama_sparepart) AS 'Sparepart', SUM(d.jumlah) AS 'Total Dipakai' 
             FROM detail_sparepart d 
             JOIN sparepart s ON d.id_sparepart = s.id_sparepart 
             GROUP BY d.id_sparepart 
-            ORDER BY SUM(d.jumlah) DESC LIMIT 10`;
+            ORDER BY SUM(d.jumlah) DESC LIMIT 10`
   }
 
   if (q.includes('pendapatan') && q.includes('bulan ini')) {
     return `SELECT SUM(total_biaya) AS 'Total Pendapatan' FROM nota 
             WHERE DATE_FORMAT(tanggal_nota,'%Y-%m') = DATE_FORMAT(NOW(),'%Y-%m') 
-            AND status_pembayaran = 'lunas'`;
+            AND status_pembayaran = 'lunas'`
   }
 
-  return null; // Jika tidak ada pola yang cocok, baru tanya Groq
+  return null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -629,16 +566,14 @@ function extractTimeFilter(q: string): TimeFilter | null {
 }
 
 function injectTimeFilter(sql: string, tf: TimeFilter): string {
-  // Temukan kolom tanggal pertama yang dipakai di SQL
   const match = sql.match(/(?:DATE_FORMAT|YEAR|DATE)\(([a-z_.]+)\b/i)
   const col   = match?.[1] ?? 'tanggal_booking'
 
   const filter =
-  tf.type === 'yearmonth' && tf.month
-    ? `YEAR(${col}) = ${tf.year} AND MONTH(${col}) = ${Number(tf.month)}`
-    : `YEAR(${col}) = ${tf.year}`
+    tf.type === 'yearmonth' && tf.month
+      ? `YEAR(${col}) = ${tf.year} AND MONTH(${col}) = ${Number(tf.month)}`
+      : `YEAR(${col}) = ${tf.year}`
 
-  // Ganti kondisi waktu generik yang sudah ada di SQL cache
   return sql
     .replace(/YEAR\([a-z_.]+\)\s*=\s*YEAR\(NOW\(\)\)/gi, filter)
     .replace(/DATE_FORMAT\([a-z_.]+,'%M %Y'\)\s*=\s*DATE_FORMAT\(NOW\(\),'%M %Y'\)/gi, filter)
@@ -698,9 +633,9 @@ function autoChartType(
   data: Record<string, any>[],
   question: string
 ): 'bar' | 'line' | 'pie' | 'table' {
-  const q       = question.toLowerCase()
-  const numCols = columns.filter(c => c.type === 'number')
-  const strCols = columns.filter(c => c.type === 'string')
+  const q        = question.toLowerCase()
+  const numCols  = columns.filter(c => c.type === 'number')
+  const strCols  = columns.filter(c => c.type === 'string')
   const dateCols = columns.filter(c => c.type === 'date')
 
   if (columns.length === 1 && numCols.length === 1) return 'table'
@@ -766,145 +701,139 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const body     = await req.json();
-    const question = (body.question ?? '').trim() as string;
+    const body     = await req.json()
+    const question = (body.question ?? '').trim() as string
 
-    
-
-    // ── 1. Validasi Input (Frontend-Backend Guard) ──────────────────────────
+    // ── 1. Validasi Input ──────────────────────────────────────────────────
     if (!question || question.length < 3) {
-      return NextResponse.json({ error: 'Pertanyaan terlalu pendek.' }, { status: 400 });
+      return NextResponse.json({ error: 'Pertanyaan terlalu pendek.' }, { status: 400 })
     }
     if (question.length > 500) {
-      return NextResponse.json({ error: 'Pertanyaan terlalu panjang (maks 500 karakter).' }, { status: 400 });
+      return NextResponse.json({ error: 'Pertanyaan terlalu panjang (maks 500 karakter).' }, { status: 400 })
     }
 
-    // Filter kata kunci tidak relevan (Opsional tapi bagus buat UX)
-    const blacklist = ['cuaca', 'politik', 'makanan', 'berita'];
+    const blacklist = ['cuaca', 'politik', 'makanan', 'berita']
     if (blacklist.some(word => question.toLowerCase().includes(word))) {
-      return NextResponse.json({ 
-        error: 'Topik tidak relevan.', 
-        hint: 'Mohon tanyakan hal seputar operasional bengkel seperti mekanik, servis, atau sparepart.' 
-      }, { status: 400 });
+      return NextResponse.json({
+        error: 'Topik tidak relevan.',
+        hint: 'Mohon tanyakan hal seputar operasional bengkel seperti mekanik, servis, atau sparepart.',
+      }, { status: 400 })
     }
 
-    // ── 2. Cek Cache (Efisiensi) ──────────────────────────────────────────
-    let sql       = matchCache(question) ?? '';
-    let fromCache = !!sql;
+    // ── 2. Cek QUERY_CACHE dulu (prioritas tertinggi) ──────────────────────
+    let sql       = matchCache(question) ?? ''
+    let fromCache = !!sql
 
+    // ── 3. Jika tidak ada di cache, cek getPatternQuery ────────────────────
     if (!sql) {
-      // ── 3. Cek Koneksi AI (Groq) ────────────────────────────────────────
+      const patternResult = getPatternQuery(question)
+      if (patternResult) {
+        sql       = patternResult
+        fromCache = true
+      }
+    }
+
+    // ── 4. Jika masih kosong, panggil Groq AI ─────────────────────────────
+    if (!sql) {
       if (!process.env.GROQ_API_KEY) {
         return NextResponse.json(
           { error: 'Konfigurasi AI (Groq) belum terpasang.', hint: 'Cek environment variables di Vercel/Aiven.' },
           { status: 500 }
-        );
+        )
       }
 
-      // ── 4. Generate SQL via Groq ──────────────────────────────────────
-      const systemPrompt = isSmallModel ? DB_SCHEMA_CONTEXT_SMALL : DB_SCHEMA_CONTEXT_FULL;
-      let rawSQL: string;
-      let sql = getPatternQuery(question);
-      let fromAI = false;
-      
+      let rawSQL = ''
       try {
-        // Ganti ollamaGenerate menjadi fungsi Groq kamu
+        const systemPrompt = isSmallModel ? DB_SCHEMA_CONTEXT_SMALL : DB_SCHEMA_CONTEXT_FULL
         rawSQL = await ollamaGenerate(
           systemPrompt,
           `User Question: ${question}\nSQL:`,
-          { temperature: 0 } 
-        );
+          { temperature: 0 }
+        )
       } catch (err: any) {
-        console.error('[ai/groq] Error:', err.message);
+        console.error('[ai/groq] Error:', err.message)
         return NextResponse.json(
           { error: 'Gagal menghubungi server AI.', hint: 'Periksa koneksi internet atau limit API Groq kamu.' },
           { status: 504 }
-        );
+        )
       }
-      if (!sql) {
-      // Jika tidak ada di pola, baru panggil AI
-      fromAI = true;
-      const rawSQL = await ollamaGenerate(DB_SCHEMA_CONTEXT_SMALL, question, { temperature: 0 });
-      sql = cleanSQL(rawSQL);
-    }
 
       if (!rawSQL || rawSQL.toUpperCase().includes('INVALID_QUERY')) {
         return NextResponse.json(
           { error: 'AI tidak memahami perintah tersebut.', hint: 'Coba gunakan bahasa yang lebih baku (misal: "tampilkan total pendapatan bulan ini").' },
           { status: 422 }
-        );
+        )
       }
-      sql = cleanSQL(rawSQL);
+
+      sql = cleanSQL(rawSQL)
     }
 
-    // ── 5. Keamanan SQL (Anti-Modifikasi Database) ─────────────────────────
-    const forbiddenWords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'TRUNCATE', 'ALTER', 'GRANT'];
+    // ── 5. Keamanan SQL ────────────────────────────────────────────────────
+    const forbiddenWords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'TRUNCATE', 'ALTER', 'GRANT']
     if (forbiddenWords.some(word => sql.toUpperCase().includes(word))) {
-      return NextResponse.json({ 
-        error: 'Keamanan: Perintah tidak diizinkan.', 
-        hint: 'Sistem hanya mengizinkan pengambilan data (SELECT).' 
-      }, { status: 403 });
+      return NextResponse.json({
+        error: 'Keamanan: Perintah tidak diizinkan.',
+        hint: 'Sistem hanya mengizinkan pengambilan data (SELECT).',
+      }, { status: 403 })
     }
 
-    const sqlCheck = validateSQL(sql);
+    const sqlCheck = validateSQL(sql)
     if (!sqlCheck.valid)
-      return NextResponse.json({ error: `SQL tidak valid: ${sqlCheck.reason}`, sql }, { status: 422 });
+      return NextResponse.json({ error: `SQL tidak valid: ${sqlCheck.reason}`, sql }, { status: 422 })
 
-    const tableCheck = validateTables(sql);
+    const tableCheck = validateTables(sql)
     if (!tableCheck.valid)
-      return NextResponse.json({ error: `SQL tidak valid: ${tableCheck.reason}`, sql }, { status: 422 });
+      return NextResponse.json({ error: `SQL tidak valid: ${tableCheck.reason}`, sql }, { status: 422 })
 
-    // ── 6. Eksekusi MySQL (Aiven) ───────────────────────────────────────────
-    let rows: Record<string, any>[];
+    // ── 6. Eksekusi MySQL ──────────────────────────────────────────────────
+    let rows: Record<string, any>[]
 
     try {
-      await pool.execute(`SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))`);
-      // Set bahasa Indonesia untuk nama bulan/hari
-      await pool.execute(`SET lc_time_names = 'id_ID'`);
-
-      const [result] = await pool.execute(sql);
-      rows = (result as any[]).map(serializeRow);
+      await pool.execute(`SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))`)
+      await pool.execute(`SET lc_time_names = 'id_ID'`)
+      const [result] = await pool.execute(sql)
+      rows = (result as any[]).map(serializeRow)
     } catch (dbErr: any) {
-      console.error('[ai/query] MySQL Error:', dbErr.message);
+      console.error('[ai/query] MySQL Error:', dbErr.message)
       return NextResponse.json(
         { error: `Database Error: ${dbErr.message}`, sql, hint: 'Terjadi kesalahan saat mengambil data dari Aiven.' },
         { status: 422 }
-      );
+      )
     }
 
-    // ── 7. Penanganan Data Kosong ───────────────────────────────────────────
+    // ── 7. Data Kosong ─────────────────────────────────────────────────────
     if (!rows.length) {
       return NextResponse.json({
         question, sql, fromCache,
         data: [], columns: [], chartType: 'table' as const,
         summary: 'Data yang Anda cari tidak ditemukan di database.', rowCount: 0,
-      });
+      })
     }
 
-    // ── 8. Metadata & Output ────────────────────────────────────────────────
+    // ── 8. Metadata & Output ───────────────────────────────────────────────
     const columns = Object.keys(rows[0]).map(key => ({
       key,
       label: makeLabel(key),
       type:  detectColumnType(key, rows.slice(0, 5).map(r => r[key])),
-    }));
+    }))
 
-    const chartType = autoChartType(columns, rows, question);
-    const summary   = buildSummary(columns, rows);
+    const chartType = autoChartType(columns, rows, question)
+    const summary   = buildSummary(columns, rows)
 
-    // Cache hasil (Best-effort)
+    // Cache hasil ke DB (best-effort)
     pool.execute(
       `INSERT INTO query_cache (pertanyaan, sql_query, hasil_query) VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE sql_query = VALUES(sql_query), updated_at = NOW()`,
       [question, sql, JSON.stringify(rows.slice(0, 5))]
-    ).catch(() => {});
+    ).catch(() => {})
 
     return NextResponse.json({
       question, sql, data: rows, columns,
       chartType, summary, rowCount: rows.length, fromCache,
-    });
+    })
 
   } catch (err: any) {
-    console.error('[ai/query] Global Error:', err);
-    return NextResponse.json({ error: 'Terjadi kesalahan internal pada server.' }, { status: 500 });
+    console.error('[ai/query] Global Error:', err)
+    return NextResponse.json({ error: 'Terjadi kesalahan internal pada server.' }, { status: 500 })
   }
 }
