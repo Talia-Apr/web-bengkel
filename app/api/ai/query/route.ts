@@ -764,8 +764,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 5. Keamanan SQL ────────────────────────────────────────────────────
-    const forbiddenWords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'TRUNCATE', 'ALTER', 'GRANT']
-    const foundForbidden = forbiddenWords.find(word => sql.toUpperCase().includes(word))
+    const forbiddenPattern = /\b(DROP|DELETE|UPDATE|INSERT|TRUNCATE|ALTER|GRANT)\b/i
+    const foundForbidden = sql.match(forbiddenPattern)?.[1]
 
     if (foundForbidden) {
       return NextResponse.json({
