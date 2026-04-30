@@ -770,10 +770,14 @@ export async function POST(req: NextRequest) {
 
     // ── 5. Keamanan SQL ────────────────────────────────────────────────────
     const forbiddenWords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'TRUNCATE', 'ALTER', 'GRANT']
-    if (forbiddenWords.some(word => sql.toUpperCase().includes(word))) {
+    const foundForbidden = forbiddenWords.find(word => sql.toUpperCase().includes(word))
+
+    if (foundForbidden) {
       return NextResponse.json({
         error: 'Keamanan: Perintah tidak diizinkan.',
-        hint: 'Sistem hanya mengizinkan pengambilan data (SELECT).',
+        hint: `Kata terlarang: "${foundForbidden}" | SQL: ${sql.slice(0, 300)}`,
+        sql,
+        fromCache,
       }, { status: 403 })
     }
 
